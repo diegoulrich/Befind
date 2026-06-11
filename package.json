@@ -1,0 +1,20 @@
+{
+  "name": "befind",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "artifacts/*",
+    "lib/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:api": "npm --workspace @workspace/api-server run dev",
+    "dev:web": "npm --workspace @workspace/business-finder run dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "typescript": "^5.5.4"
+  }
+}
