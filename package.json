@@ -46,7 +46,6 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "autoprefixer": "latest",
-    "drizzle-kit": "latest",
     "eslint": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",

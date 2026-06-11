@@ -25,7 +25,7 @@ export class StripeStorage {
       LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
       ORDER BY p.id, pr.unit_amount
     `);
-    return result.rows;
+    return result;
   }
 
   async getSubscriptionByCustomerId(customerId: string) {
@@ -36,7 +36,7 @@ export class StripeStorage {
       ORDER BY created DESC
       LIMIT 1
     `);
-    return result.rows[0] || null;
+    return result[0] || null;
   }
 }
 
