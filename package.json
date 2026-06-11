@@ -1,0 +1,23 @@
+{
+  "name": "befind",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "lib/api-zod",
+    "lib/db",
+    "lib/api-client-react",
+    "artifacts/api-server",
+    "artifacts/business-finder"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run build --workspace @workspace/api-zod && npm run build --workspace @workspace/db && npm run build --workspace @workspace/api-client-react && npm run typecheck --workspace @workspace/api-server && npm run typecheck --workspace @workspace/business-finder",
+    "dev:api": "npm --workspace @workspace/api-server run dev",
+    "dev:web": "npm --workspace @workspace/business-finder run dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "typescript": "^5.5.4"
+  }
+}
