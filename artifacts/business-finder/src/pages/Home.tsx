@@ -4,12 +4,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
+  Bot,
   ClipboardList,
   Cpu,
   Globe,
   History as HistoryIcon,
   Loader2,
+  Lock,
+  PlayCircle,
   Rocket,
+  Send,
   ShoppingBag,
   Sparkles,
   Star,
@@ -25,6 +29,11 @@ import { Progress } from "@/components/ui/progress";
 import { LANGUAGES, TRANSLATIONS, type Language } from "@/lib/translations";
 
 type Step = "welcome" | "quiz" | "loading" | "result";
+
+interface BusinessAgentMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 const ECOM_KEYWORDS = [
   "dropshipping",
@@ -43,6 +52,43 @@ function isEcommerceBusiness(name?: string, description?: string): boolean {
   return ECOM_KEYWORDS.some((keyword) => haystack.includes(keyword));
 }
 
+const ONLYFANS_KEYWORDS = [
+  "onlyfans",
+  "only fans",
+  "onlyfan",
+  "management de createurs",
+  "management créateurs",
+  "agence de createurs",
+  "agence de créateurs",
+];
+
+const ONLYFANS_RECOMMENDATION_VIDEOS = [
+  {
+    title: "OnlyFans Management - Formation recommandée 1",
+    url: "https://www.youtube.com/embed/CO2r19gAjxw",
+  },
+  {
+    title: "OnlyFans Management - Formation recommandée 2",
+    url: "https://www.youtube.com/embed/pDz05OUeFGU",
+  },
+  {
+    title: "OnlyFans Management - Formation recommandée 3",
+    url: "https://www.youtube.com/embed/tVXctzQyp3c",
+  },
+];
+
+function normalizeForSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isOnlyFansManagement(name?: string, description?: string): boolean {
+  const haystack = normalizeForSearch(`${name ?? ""} ${description ?? ""}`);
+  return ONLYFANS_KEYWORDS.some((keyword) => haystack.includes(normalizeForSearch(keyword)));
+}
+
 export default function Home() {
   const [, setLocation] = useLocation();
   const [lang, setLang] = useState<Language>("fr");
@@ -54,6 +100,13 @@ export default function Home() {
   const [streamContent, setStreamContent] = useState("");
   const [resultId, setResultId] = useState<number | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [subscriberEmail, setSubscriberEmail] = useState("");
+  const [subscriberUnlocked, setSubscriberUnlocked] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState("");
+  const [agentQuestion, setAgentQuestion] = useState("");
+  const [agentMessages, setAgentMessages] = useState<BusinessAgentMessage[]>([]);
+  const [agentLoading, setAgentLoading] = useState(false);
 
   const t = TRANSLATIONS[lang];
   const currentLang = LANGUAGES.find((language) => language.code === lang)!;
@@ -72,6 +125,12 @@ export default function Home() {
     setResultId(null);
     setStreamContent("");
     setHasError(false);
+    setSubscriberEmail("");
+    setSubscriberUnlocked(false);
+    setSubscriptionError("");
+    setAgentQuestion("");
+    setAgentMessages([]);
+    setAgentLoading(false);
   };
 
   const handleStart = (event: { preventDefault: () => void }) => {
@@ -136,6 +195,91 @@ export default function Home() {
 
     setStep("loading");
     await submitQuizData(nextAnswers);
+  };
+
+  const verifySubscriberAccess = async (event: { preventDefault: () => void }) => {
+    event.preventDefault();
+    const email = subscriberEmail.trim().toLowerCase();
+    if (!email) return;
+
+    setSubscriptionLoading(true);
+    setSubscriptionError("");
+
+    try {
+      const response = await fetch(`/api/shop/subscription/${encodeURIComponent(email)}`);
+      const data = (await response.json()) as {
+        active?: boolean;
+        eligible?: boolean;
+        tier?: string | null;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "subscription check failed");
+      }
+
+      if (!data.active || !data.eligible) {
+        setSubscriberUnlocked(false);
+        setSubscriptionError("Un abonnement Starter ou Premium actif est requis pour débloquer cet espace.");
+        return;
+      }
+
+      setSubscriberUnlocked(true);
+      setAgentMessages([]);
+    } catch {
+      setSubscriberUnlocked(false);
+      setSubscriptionError("Impossible de vérifier l'abonnement. Vérifiez l'email ou réessayez.");
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const sendAgentQuestion = async (event: { preventDefault: () => void }) => {
+    event.preventDefault();
+    const question = agentQuestion.trim();
+    const email = subscriberEmail.trim().toLowerCase();
+    if (!question || !finalResult || !subscriberUnlocked || agentLoading) return;
+
+    const nextMessages: BusinessAgentMessage[] = [...agentMessages, { role: "user", content: question }];
+    setAgentMessages(nextMessages);
+    setAgentQuestion("");
+    setAgentLoading(true);
+
+    try {
+      const response = await fetch("/api/business-agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          businessName: finalResult.businessName,
+          businessDescription: finalResult.businessDescription,
+          question,
+          history: agentMessages,
+        }),
+      });
+
+      const data = (await response.json()) as { answer?: string; error?: string; message?: string };
+      if (response.status === 402) {
+        setSubscriberUnlocked(false);
+        setSubscriptionError(data.message ?? "Un abonnement Starter ou Premium actif est requis.");
+        return;
+      }
+      if (!response.ok || !data.answer) {
+        throw new Error(data.error ?? "agent failed");
+      }
+
+      setAgentMessages([...nextMessages, { role: "assistant", content: data.answer }]);
+    } catch {
+      setAgentMessages([
+        ...nextMessages,
+        {
+          role: "assistant",
+          content: "Désolé, l'agent IA n'arrive pas à répondre pour le moment. Réessayez dans un instant.",
+        },
+      ]);
+    } finally {
+      setAgentLoading(false);
+    }
   };
 
   return (
@@ -352,6 +496,147 @@ export default function Home() {
                   </Button>
                 </Card>
               )}
+
+              <Card className="overflow-hidden border-2 border-indigo-100">
+                <div className="bg-stone-950 p-6 text-white">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-100">
+                        <Lock className="h-3.5 w-3.5" /> Espace abonnés Starter / Premium
+                      </span>
+                      <h3 className="font-serif mt-3 text-3xl font-black">Recommandations & agent IA business</h3>
+                      <p className="mt-2 max-w-2xl text-sm text-white/75">
+                        Débloquez les ressources avancées liées à votre recommandation et discutez avec un agent IA
+                        spécialisé dans le business "{finalResult.businessName}".
+                      </p>
+                    </div>
+                    <Button variant="secondary" onClick={() => setLocation("/pricing")}>
+                      Voir les abonnements
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-6 p-6">
+                  {!subscriberUnlocked ? (
+                    <form onSubmit={(event) => void verifySubscriberAccess(event)} className="space-y-4">
+                      <div>
+                        <label htmlFor="subscriber-email" className="text-sm font-semibold">
+                          Email de votre abonnement
+                        </label>
+                        <p className="mt-1 text-sm text-stone-600">
+                          Entrez l'email utilisé pour votre abonnement Starter ou Premium afin de débloquer cet espace.
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <Input
+                          id="subscriber-email"
+                          type="email"
+                          value={subscriberEmail}
+                          onChange={(event) => setSubscriberEmail(event.target.value)}
+                          placeholder="vous@exemple.com"
+                          className="h-12"
+                        />
+                        <Button type="submit" disabled={!subscriberEmail.trim() || subscriptionLoading} className="h-12">
+                          {subscriptionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                          Débloquer
+                        </Button>
+                      </div>
+                      {subscriptionError && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {subscriptionError}
+                        </div>
+                      )}
+                    </form>
+                  ) : (
+                    <div className="space-y-8">
+                      {isOnlyFansManagement(finalResult.businessName, finalResult.businessDescription) && (
+                        <section className="space-y-4">
+                          <div>
+                            <h4 className="flex items-center gap-2 text-xl font-bold">
+                              <PlayCircle className="h-5 w-5 text-indigo-600" />
+                              Recommandations vidéo - OnlyFans Management
+                            </h4>
+                            <p className="mt-1 text-sm text-stone-600">
+                              Ces vidéos complètent votre plan d'action pour comprendre l'acquisition, l'offre et les
+                              opérations d'une agence de management de créateurs.
+                            </p>
+                          </div>
+                          <div className="grid gap-4 md:grid-cols-3">
+                            {ONLYFANS_RECOMMENDATION_VIDEOS.map((video) => (
+                              <div key={video.url} className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+                                <div className="aspect-video bg-stone-100">
+                                  <iframe
+                                    className="h-full w-full"
+                                    src={video.url}
+                                    title={video.title}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowFullScreen
+                                  />
+                                </div>
+                                <p className="p-3 text-sm font-semibold">{video.title}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
+                      <section className="space-y-4">
+                        <div>
+                          <h4 className="flex items-center gap-2 text-xl font-bold">
+                            <Bot className="h-5 w-5 text-indigo-600" />
+                            Agent IA spécialisé - {finalResult.businessName}
+                          </h4>
+                          <p className="mt-1 text-sm text-stone-600">
+                            Posez vos questions sur le lancement, le marketing, les ventes, les risques ou les
+                            prochaines étapes de ce business.
+                          </p>
+                        </div>
+
+                        <div className="max-h-80 space-y-3 overflow-y-auto rounded-2xl border bg-stone-50 p-4">
+                          {agentMessages.length === 0 ? (
+                            <div className="rounded-xl bg-white p-4 text-sm text-stone-600">
+                              Exemple : "Quelles sont les 3 premières actions à faire cette semaine ?" ou "Comment
+                              trouver mes premiers clients ?"
+                            </div>
+                          ) : (
+                            agentMessages.map((message, idx) => (
+                              <div
+                                key={idx}
+                                className={`rounded-xl p-3 text-sm ${
+                                  message.role === "user"
+                                    ? "ml-8 bg-indigo-600 text-white"
+                                    : "mr-8 bg-white text-stone-800"
+                                }`}
+                              >
+                                {message.content}
+                              </div>
+                            ))
+                          )}
+                          {agentLoading && (
+                            <div className="mr-8 flex items-center gap-2 rounded-xl bg-white p-3 text-sm text-stone-600">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              L'agent réfléchit...
+                            </div>
+                          )}
+                        </div>
+
+                        <form onSubmit={(event) => void sendAgentQuestion(event)} className="flex flex-col gap-3 sm:flex-row">
+                          <Input
+                            value={agentQuestion}
+                            onChange={(event) => setAgentQuestion(event.target.value)}
+                            placeholder={`Question sur ${finalResult.businessName}...`}
+                            className="h-12"
+                          />
+                          <Button type="submit" disabled={!agentQuestion.trim() || agentLoading} className="h-12">
+                            <Send className="h-4 w-4" />
+                            Envoyer
+                          </Button>
+                        </form>
+                      </section>
+                    </div>
+                  )}
+                </div>
+              </Card>
 
               <div className="flex flex-col gap-4 pt-4 sm:flex-row">
                 <Button size="lg" className="h-14 flex-1 text-lg" onClick={handleRestart}>

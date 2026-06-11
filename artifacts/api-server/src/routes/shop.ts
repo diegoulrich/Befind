@@ -3,7 +3,7 @@ import { db, shopProductsTable, shopsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 import { openai } from "../lib/openai";
-import { getUncachableStripeClient } from "../lib/stripeClient";
+import { getActiveSubscription, isStarterOrPremium } from "../lib/subscription";
 
 const router: IRouter = Router();
 
@@ -28,34 +28,6 @@ function slugify(input: string): string {
   return `${base || "boutique"}-${suffix}`;
 }
 
-async function getActiveSubscription(
-  email: string,
-): Promise<{ active: boolean; tier: string | null; customerId: string | null }> {
-  const stripe = await getUncachableStripeClient();
-  const customers = await stripe.customers.list({ email, limit: 10 });
-
-  for (const customer of customers.data) {
-    const subs = await stripe.subscriptions.list({
-      customer: customer.id,
-      status: "active",
-      limit: 10,
-      expand: ["data.items.data.price.product"],
-    });
-
-    if (subs.data.length > 0) {
-      const sub = subs.data[0];
-      const product = sub.items.data[0]?.price?.product;
-      let tier: string | null = null;
-      if (product && typeof product !== "string" && !("deleted" in product && product.deleted)) {
-        tier = product.metadata?.tier ?? product.name ?? null;
-      }
-      return { active: true, tier, customerId: customer.id };
-    }
-  }
-
-  return { active: false, tier: null, customerId: customers.data[0]?.id ?? null };
-}
-
 router.get("/shop/subscription/:email", async (req, res): Promise<void> => {
   const email = req.params.email?.trim().toLowerCase();
   if (!email) {
@@ -65,7 +37,7 @@ router.get("/shop/subscription/:email", async (req, res): Promise<void> => {
 
   try {
     const sub = await getActiveSubscription(email);
-    res.json({ active: sub.active, tier: sub.tier });
+    res.json({ active: sub.active, tier: sub.tier, eligible: isStarterOrPremium(sub) });
   } catch (err) {
     req.log.error({ err }, "Error checking subscription");
     res.status(500).json({ error: "Erreur lors de la vérification de l'abonnement" });
@@ -172,7 +144,7 @@ router.post("/shop/generate", async (req, res): Promise<void> => {
     return;
   }
 
-  if (!subscription.active) {
+  if (!isStarterOrPremium(subscription)) {
     res.status(402).json({
       error: "subscription_required",
       message: "Un abonnement actif est requis pour générer votre boutique.",
