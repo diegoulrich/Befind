@@ -6,6 +6,12 @@ export interface ActiveSubscription {
   customerId: string | null;
 }
 
+export interface SubscriptionAccess extends ActiveSubscription {
+  plan: "starter" | "premium" | null;
+  canTakeQuiz: boolean;
+  canUsePremiumTools: boolean;
+}
+
 export async function getActiveSubscription(email: string): Promise<ActiveSubscription> {
   const stripe = await getUncachableStripeClient();
   const customers = await stripe.customers.list({ email, limit: 10 });
@@ -41,4 +47,28 @@ export function isStarterOrPremium(subscription: ActiveSubscription): boolean {
 
   const tier = subscription.tier.toLowerCase();
   return tier.includes("starter") || tier.includes("premium");
+}
+
+export function getSubscriptionPlan(subscription: ActiveSubscription): "starter" | "premium" | null {
+  if (!subscription.active || !subscription.tier) return null;
+
+  const tier = subscription.tier.toLowerCase();
+  if (tier.includes("premium")) return "premium";
+  if (tier.includes("starter")) return "starter";
+  return null;
+}
+
+export function isPremiumSubscription(subscription: ActiveSubscription): boolean {
+  return getSubscriptionPlan(subscription) === "premium";
+}
+
+export function getSubscriptionAccess(subscription: ActiveSubscription): SubscriptionAccess {
+  const plan = getSubscriptionPlan(subscription);
+
+  return {
+    ...subscription,
+    plan,
+    canTakeQuiz: isStarterOrPremium(subscription),
+    canUsePremiumTools: plan === "premium",
+  };
 }

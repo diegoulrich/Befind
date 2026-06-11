@@ -44,9 +44,10 @@ export default function ShopBuilder() {
 
   const params = new URLSearchParams(window.location.search);
   const businessType = params.get("business") ?? "";
+  const emailParam = params.get("email") ?? "";
 
   const [step, setStep] = useState<Step>("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(emailParam);
   const [niches, setNiches] = useState<Niche[]>([]);
   const [nichesLoading, setNichesLoading] = useState(false);
   const [selectedNiche, setSelectedNiche] = useState<Niche | null>(null);
@@ -55,8 +56,22 @@ export default function ShopBuilder() {
   const loadNiches = async () => {
     setNichesLoading(true);
     try {
-      const response = await fetch(`/api/shop/niches?lang=fr&business=${encodeURIComponent(businessType)}`);
+      const response = await fetch(
+        `/api/shop/niches?lang=fr&business=${encodeURIComponent(businessType)}&email=${encodeURIComponent(
+          email.trim().toLowerCase(),
+        )}`,
+      );
       const data = await response.json();
+      if (response.status === 402) {
+        toast({
+          title: "Premium requis",
+          description: data.message ?? "Un abonnement Premium est nécessaire pour accéder aux produits gagnants.",
+          variant: "destructive",
+        });
+        setLocation("/pricing");
+        return;
+      }
+      if (!response.ok) throw new Error("niches failed");
       setNiches(data.niches ?? []);
     } catch {
       toast({
@@ -110,8 +125,8 @@ export default function ShopBuilder() {
 
       if (response.status === 402) {
         toast({
-          title: "Abonnement requis",
-          description: "Un abonnement actif est nécessaire pour générer votre boutique.",
+          title: "Premium requis",
+          description: "Un abonnement Premium est nécessaire pour générer votre boutique.",
           variant: "destructive",
         });
         setLocation("/pricing");
@@ -176,7 +191,7 @@ export default function ShopBuilder() {
                   Continuer <ArrowRight className="ml-2" />
                 </Button>
                 <p className="flex items-center justify-center gap-1.5 text-xs text-stone-500">
-                  <Lock className="h-3 w-3" /> La génération nécessite un abonnement actif.
+                  <Lock className="h-3 w-3" /> Les outils boutique nécessitent un abonnement Premium.
                 </p>
               </form>
             </motion.div>

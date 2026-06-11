@@ -29,6 +29,7 @@ import { Progress } from "@/components/ui/progress";
 import { LANGUAGES, TRANSLATIONS, type Language } from "@/lib/translations";
 
 type Step = "welcome" | "quiz" | "loading" | "result";
+type SubscriptionPlan = "starter" | "premium" | null;
 
 interface BusinessAgentMessage {
   role: "user" | "assistant";
@@ -102,6 +103,7 @@ export default function Home() {
   const [hasError, setHasError] = useState(false);
   const [subscriberEmail, setSubscriberEmail] = useState("");
   const [subscriberUnlocked, setSubscriberUnlocked] = useState(false);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState("");
   const [agentQuestion, setAgentQuestion] = useState("");
@@ -127,15 +129,49 @@ export default function Home() {
     setHasError(false);
     setSubscriberEmail("");
     setSubscriberUnlocked(false);
+    setSubscriptionPlan(null);
     setSubscriptionError("");
     setAgentQuestion("");
     setAgentMessages([]);
     setAgentLoading(false);
   };
 
-  const handleStart = (event: { preventDefault: () => void }) => {
+  const handleStart = async (event: { preventDefault: () => void }) => {
     event.preventDefault();
-    if (userName.trim()) setStep("quiz");
+    const email = subscriberEmail.trim().toLowerCase();
+    if (!userName.trim() || !email) return;
+
+    setSubscriptionLoading(true);
+    setSubscriptionError("");
+
+    try {
+      const response = await fetch(`/api/shop/subscription/${encodeURIComponent(email)}`);
+      const data = (await response.json()) as {
+        active?: boolean;
+        eligible?: boolean;
+        plan?: SubscriptionPlan;
+        canTakeQuiz?: boolean;
+        canUsePremiumTools?: boolean;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "subscription check failed");
+      }
+
+      if (!data.active || !data.canTakeQuiz) {
+        setSubscriptionError("Un abonnement Starter ou Premium actif est requis pour faire le questionnaire.");
+        return;
+      }
+
+      setSubscriptionPlan(data.plan ?? null);
+      setSubscriberUnlocked(!!data.canUsePremiumTools);
+      setStep("quiz");
+    } catch {
+      setSubscriptionError("Impossible de vérifier l'abonnement. Vérifiez l'email ou réessayez.");
+    } finally {
+      setSubscriptionLoading(false);
+    }
   };
 
   const submitQuizData = async (finalAnswers: QuizAnswer[]) => {
@@ -144,8 +180,23 @@ export default function Home() {
       const response = await fetch("/api/quiz/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: finalAnswers, userName, language: lang }),
+        body: JSON.stringify({
+          answers: finalAnswers,
+          email: subscriberEmail.trim().toLowerCase(),
+          userName,
+          language: lang,
+        }),
       });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { message?: string; error?: string } | null;
+        setSubscriptionError(
+          data?.message ?? "Un abonnement Starter ou Premium actif est requis pour faire le questionnaire.",
+        );
+        setHasError(true);
+        setStep("welcome");
+        return;
+      }
 
       if (!response.body) throw new Error("No body");
 
@@ -210,6 +261,8 @@ export default function Home() {
       const data = (await response.json()) as {
         active?: boolean;
         eligible?: boolean;
+        plan?: SubscriptionPlan;
+        canUsePremiumTools?: boolean;
         tier?: string | null;
         error?: string;
       };
@@ -218,12 +271,14 @@ export default function Home() {
         throw new Error(data.error ?? "subscription check failed");
       }
 
-      if (!data.active || !data.eligible) {
+      if (!data.active || !data.canUsePremiumTools) {
         setSubscriberUnlocked(false);
-        setSubscriptionError("Un abonnement Starter ou Premium actif est requis pour débloquer cet espace.");
+        setSubscriptionPlan(data.plan ?? null);
+        setSubscriptionError("Un abonnement Premium actif est requis pour débloquer les outils avancés.");
         return;
       }
 
+      setSubscriptionPlan(data.plan ?? "premium");
       setSubscriberUnlocked(true);
       setAgentMessages([]);
     } catch {
@@ -261,7 +316,7 @@ export default function Home() {
       const data = (await response.json()) as { answer?: string; error?: string; message?: string };
       if (response.status === 402) {
         setSubscriberUnlocked(false);
-        setSubscriptionError(data.message ?? "Un abonnement Starter ou Premium actif est requis.");
+        setSubscriptionError(data.message ?? "Un abonnement Premium actif est requis.");
         return;
       }
       if (!response.ok || !data.answer) {
@@ -357,20 +412,61 @@ export default function Home() {
                 ))}
               </div>
 
-              <form onSubmit={handleStart} className="mx-auto max-w-md space-y-4 pt-4 text-left">
-                <label htmlFor="name" className="text-sm font-semibold">
-                  {t.nameLabel}
-                </label>
-                <Input
-                  id="name"
-                  value={userName}
-                  onChange={(event) => setUserName(event.target.value)}
-                  placeholder={t.namePlaceholder}
-                  className="h-14 text-lg"
-                  autoFocus
-                />
-                <Button type="submit" disabled={!userName.trim()} className="h-14 w-full text-lg">
-                  {t.startButton} <ArrowRight className="ml-2" />
+              <form onSubmit={(event) => void handleStart(event)} className="mx-auto max-w-md space-y-4 pt-4 text-left">
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-950">
+                  <div className="flex items-start gap-2">
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+                    <p>
+                      Le questionnaire est réservé aux abonnés. Starter débloque le plan d'action, Premium débloque
+                      aussi les outils avancés liés au business recommandé.
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-sm font-semibold">
+                    {t.nameLabel}
+                  </label>
+                  <Input
+                    id="name"
+                    value={userName}
+                    onChange={(event) => setUserName(event.target.value)}
+                    placeholder={t.namePlaceholder}
+                    className="h-14 text-lg"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="subscription-email" className="text-sm font-semibold">
+                    Email de votre abonnement
+                  </label>
+                  <Input
+                    id="subscription-email"
+                    type="email"
+                    value={subscriberEmail}
+                    onChange={(event) => setSubscriberEmail(event.target.value)}
+                    placeholder="vous@exemple.com"
+                    className="h-14 text-lg"
+                  />
+                </div>
+                {subscriptionError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {subscriptionError}
+                  </div>
+                )}
+                <Button
+                  type="submit"
+                  disabled={!userName.trim() || !subscriberEmail.trim() || subscriptionLoading}
+                  className="h-14 w-full text-lg"
+                >
+                  {subscriptionLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Vérification...
+                    </>
+                  ) : (
+                    <>
+                      {t.startButton} <ArrowRight className="ml-2" />
+                    </>
+                  )}
                 </Button>
               </form>
 
@@ -480,7 +576,7 @@ export default function Home() {
                 </div>
               </Card>
 
-              {isEcommerceBusiness(finalResult.businessName, finalResult.businessDescription) && (
+              {subscriberUnlocked && isEcommerceBusiness(finalResult.businessName, finalResult.businessDescription) && (
                 <Card className="border-indigo-200 bg-indigo-50 p-8 text-center">
                   <ShoppingBag className="mx-auto mb-3 h-8 w-8 text-indigo-600" />
                   <h3 className="font-serif text-2xl font-bold">Lancez votre boutique en quelques minutes</h3>
@@ -490,7 +586,13 @@ export default function Home() {
                   <Button
                     size="lg"
                     className="mt-5 h-14 px-8 text-lg"
-                    onClick={() => setLocation(`/shop-builder?business=${encodeURIComponent(finalResult.businessName)}`)}
+                    onClick={() =>
+                      setLocation(
+                        `/shop-builder?business=${encodeURIComponent(finalResult.businessName)}&email=${encodeURIComponent(
+                          subscriberEmail.trim().toLowerCase(),
+                        )}`,
+                      )
+                    }
                   >
                     <Sparkles className="mr-2" /> Générer ma boutique grâce à l'IA
                   </Button>
@@ -502,12 +604,12 @@ export default function Home() {
                   <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-100">
-                        <Lock className="h-3.5 w-3.5" /> Espace abonnés Starter / Premium
+                        <Lock className="h-3.5 w-3.5" /> Outils Premium
                       </span>
                       <h3 className="font-serif mt-3 text-3xl font-black">Recommandations & agent IA business</h3>
                       <p className="mt-2 max-w-2xl text-sm text-white/75">
-                        Débloquez les ressources avancées liées à votre recommandation et discutez avec un agent IA
-                        spécialisé dans le business "{finalResult.businessName}".
+                        Les abonnés Premium débloquent les ressources avancées liées à leur recommandation, les outils
+                        business et l'agent IA spécialisé dans "{finalResult.businessName}".
                       </p>
                     </div>
                     <Button variant="secondary" onClick={() => setLocation("/pricing")}>
@@ -523,9 +625,16 @@ export default function Home() {
                         <label htmlFor="subscriber-email" className="text-sm font-semibold">
                           Email de votre abonnement
                         </label>
-                        <p className="mt-1 text-sm text-stone-600">
-                          Entrez l'email utilisé pour votre abonnement Starter ou Premium afin de débloquer cet espace.
-                        </p>
+                        {subscriptionPlan === "starter" ? (
+                          <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                            Votre abonnement Starter est actif : vous avez accès au questionnaire et au plan d'action.
+                            Passez en Premium pour débloquer les outils du business recommandé.
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-sm text-stone-600">
+                            Entrez l'email utilisé pour votre abonnement Premium afin de débloquer cet espace.
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-col gap-3 sm:flex-row">
                         <Input

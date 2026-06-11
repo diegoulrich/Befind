@@ -8,6 +8,7 @@ export const QuizAnswerSchema = z.object({
 
 export const SubmitQuizBody = z.object({
   answers: z.array(QuizAnswerSchema).min(1),
+  email: z.string().trim().email(),
   userName: z.string().trim().optional(),
   language: z.enum(["fr", "en", "es", "de", "pt", "it"]).optional(),
 });

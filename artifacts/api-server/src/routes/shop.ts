@@ -3,7 +3,7 @@ import { db, shopProductsTable, shopsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 import { openai } from "../lib/openai";
-import { getActiveSubscription, isStarterOrPremium } from "../lib/subscription";
+import { getActiveSubscription, getSubscriptionAccess } from "../lib/subscription";
 
 const router: IRouter = Router();
 
@@ -37,7 +37,16 @@ router.get("/shop/subscription/:email", async (req, res): Promise<void> => {
 
   try {
     const sub = await getActiveSubscription(email);
-    res.json({ active: sub.active, tier: sub.tier, eligible: isStarterOrPremium(sub) });
+    const access = getSubscriptionAccess(sub);
+    res.json({
+      active: access.active,
+      tier: access.tier,
+      plan: access.plan,
+      eligible: access.canTakeQuiz,
+      premium: access.canUsePremiumTools,
+      canTakeQuiz: access.canTakeQuiz,
+      canUsePremiumTools: access.canUsePremiumTools,
+    });
   } catch (err) {
     req.log.error({ err }, "Error checking subscription");
     res.status(500).json({ error: "Erreur lors de la vérification de l'abonnement" });
@@ -47,7 +56,29 @@ router.get("/shop/subscription/:email", async (req, res): Promise<void> => {
 router.get("/shop/niches", async (req, res): Promise<void> => {
   const lang = (req.query.lang as string) ?? "fr";
   const business = (req.query.business as string) ?? "";
+  const email = (req.query.email as string | undefined)?.trim().toLowerCase();
   const responseLang = LANG_NAMES[lang] ?? "French";
+
+  if (!email) {
+    res.status(400).json({ error: "Email requis" });
+    return;
+  }
+
+  try {
+    const subscription = await getActiveSubscription(email);
+    const access = getSubscriptionAccess(subscription);
+    if (!access.canUsePremiumTools) {
+      res.status(402).json({
+        error: "premium_required",
+        message: "Un abonnement Premium actif est requis pour accéder aux produits gagnants.",
+      });
+      return;
+    }
+  } catch (err) {
+    req.log.error({ err }, "Error checking subscription before niches");
+    res.status(500).json({ error: "Erreur lors de la vérification de l'abonnement" });
+    return;
+  }
 
   const systemPrompt = `You are an expert e-commerce market analyst specialised in dropshipping, print-on-demand and online retail.
 You identify trending, profitable niches and the current winning products within them.
@@ -144,10 +175,10 @@ router.post("/shop/generate", async (req, res): Promise<void> => {
     return;
   }
 
-  if (!isStarterOrPremium(subscription)) {
+  if (!getSubscriptionAccess(subscription).canUsePremiumTools) {
     res.status(402).json({
-      error: "subscription_required",
-      message: "Un abonnement actif est requis pour générer votre boutique.",
+      error: "premium_required",
+      message: "Un abonnement Premium actif est requis pour générer votre boutique.",
     });
     return;
   }

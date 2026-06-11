@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 
 import { openai } from "../lib/openai";
-import { getActiveSubscription, isStarterOrPremium } from "../lib/subscription";
+import { getActiveSubscription, getSubscriptionAccess } from "../lib/subscription";
 
 const router: IRouter = Router();
 
@@ -47,10 +47,10 @@ router.post("/business-agent/chat", async (req, res): Promise<void> => {
 
   try {
     const subscription = await getActiveSubscription(email.trim().toLowerCase());
-    if (!isStarterOrPremium(subscription)) {
+    if (!getSubscriptionAccess(subscription).canUsePremiumTools) {
       res.status(402).json({
-        error: "subscription_required",
-        message: "Un abonnement Starter ou Premium actif est requis.",
+        error: "premium_required",
+        message: "Un abonnement Premium actif est requis pour utiliser l'agent IA business.",
       });
       return;
     }

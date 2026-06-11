@@ -9,6 +9,7 @@ import {
 import { desc, eq } from "drizzle-orm";
 
 import { openai } from "../lib/openai";
+import { getActiveSubscription, getSubscriptionAccess } from "../lib/subscription";
 
 const router: IRouter = Router();
 
@@ -28,9 +29,25 @@ router.post("/quiz/submit", async (req, res): Promise<void> => {
     return;
   }
 
-  const { answers, userName, language } = parsed.data;
+  const { answers, email, userName, language } = parsed.data;
   const responseLang = LANG_NAMES[language ?? "fr"] ?? "French";
   const answersText = answers.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n");
+
+  try {
+    const subscription = await getActiveSubscription(email.toLowerCase());
+    const access = getSubscriptionAccess(subscription);
+    if (!access.canTakeQuiz) {
+      res.status(402).json({
+        error: "subscription_required",
+        message: "Un abonnement Starter ou Premium actif est requis pour faire le questionnaire.",
+      });
+      return;
+    }
+  } catch (err) {
+    req.log.error({ err }, "Error checking subscription before quiz");
+    res.status(500).json({ error: "Erreur lors de la vérification de l'abonnement" });
+    return;
+  }
 
   const systemPrompt = `You are an expert in entrepreneurship and career guidance.
 You analyse a user's quiz answers and recommend the best-fitting business type for their profile.
