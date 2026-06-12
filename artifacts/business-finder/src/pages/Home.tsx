@@ -11,6 +11,7 @@ import {
   History as HistoryIcon,
   Loader2,
   Lock,
+  LogIn,
   PlayCircle,
   Rocket,
   Send,
@@ -18,6 +19,7 @@ import {
   Sparkles,
   Star,
   ThumbsUp,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { getGetResultQueryKey, useGetResult, type QuizAnswer } from "@workspace/api-client-react";
@@ -28,7 +30,8 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { LANGUAGES, TRANSLATIONS, type Language } from "@/lib/translations";
 
-type Step = "welcome" | "quiz" | "loading" | "result";
+type Step = "welcome" | "auth" | "quiz" | "loading" | "result";
+type AuthMode = "login" | "signup";
 type SubscriptionPlan = "starter" | "premium" | null;
 
 interface BusinessAgentMessage {
@@ -95,6 +98,7 @@ export default function Home() {
   const [lang, setLang] = useState<Language>("fr");
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [step, setStep] = useState<Step>("welcome");
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [userName, setUserName] = useState("");
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswer[]>([]);
@@ -122,6 +126,7 @@ export default function Home() {
 
   const handleRestart = () => {
     setStep("welcome");
+    setAuthMode("login");
     setAnswers([]);
     setCurrentQuestionIdx(0);
     setResultId(null);
@@ -139,7 +144,8 @@ export default function Home() {
   const handleStart = async (event: { preventDefault: () => void }) => {
     event.preventDefault();
     const email = subscriberEmail.trim().toLowerCase();
-    if (!userName.trim() || !email) return;
+    const displayName = userName.trim() || email.split("@")[0] || "Utilisateur";
+    if (!email || (authMode === "signup" && !userName.trim())) return;
 
     setSubscriptionLoading(true);
     setSubscriptionError("");
@@ -164,6 +170,7 @@ export default function Home() {
         return;
       }
 
+      setUserName(displayName);
       setSubscriptionPlan(data.plan ?? null);
       setSubscriberUnlocked(!!data.canUsePremiumTools);
       setStep("quiz");
@@ -412,63 +419,22 @@ export default function Home() {
                 ))}
               </div>
 
-              <form onSubmit={(event) => void handleStart(event)} className="mx-auto max-w-md space-y-4 pt-4 text-left">
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-950">
-                  <div className="flex items-start gap-2">
-                    <Lock className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
-                    <p>
-                      Le questionnaire est réservé aux abonnés. Starter débloque le plan d'action, Premium débloque
-                      aussi les outils avancés liés au business recommandé.
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-semibold">
-                    {t.nameLabel}
-                  </label>
-                  <Input
-                    id="name"
-                    value={userName}
-                    onChange={(event) => setUserName(event.target.value)}
-                    placeholder={t.namePlaceholder}
-                    className="h-14 text-lg"
-                    autoFocus
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="subscription-email" className="text-sm font-semibold">
-                    Email de votre abonnement
-                  </label>
-                  <Input
-                    id="subscription-email"
-                    type="email"
-                    value={subscriberEmail}
-                    onChange={(event) => setSubscriberEmail(event.target.value)}
-                    placeholder="vous@exemple.com"
-                    className="h-14 text-lg"
-                  />
-                </div>
-                {subscriptionError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {subscriptionError}
-                  </div>
-                )}
+              <div className="mx-auto max-w-md space-y-4 pt-4">
                 <Button
-                  type="submit"
-                  disabled={!userName.trim() || !subscriberEmail.trim() || subscriptionLoading}
                   className="h-14 w-full text-lg"
+                  onClick={() => {
+                    setSubscriptionError("");
+                    setAuthMode("login");
+                    setStep("auth");
+                  }}
                 >
-                  {subscriptionLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Vérification...
-                    </>
-                  ) : (
-                    <>
-                      {t.startButton} <ArrowRight className="ml-2" />
-                    </>
-                  )}
+                  Faire le questionnaire <ArrowRight className="ml-2" />
                 </Button>
-              </form>
+                <p className="flex items-center justify-center gap-1.5 text-sm text-stone-500">
+                  <Lock className="h-4 w-4" />
+                  Connexion requise : Starter pour le plan d'action, Premium pour les outils avancés.
+                </p>
+              </div>
 
               <section className="pt-10">
                 <p className="mb-6 text-sm font-bold uppercase tracking-widest text-stone-500">
@@ -490,6 +456,158 @@ export default function Home() {
                   ))}
                 </div>
               </section>
+            </motion.div>
+          )}
+
+          {step === "auth" && (
+            <motion.div
+              key="auth"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-md space-y-6"
+            >
+              <Button variant="ghost" className="gap-2" onClick={() => setStep("welcome")}>
+                <ArrowLeft className="h-4 w-4" /> Retour
+              </Button>
+
+              <Card className="overflow-hidden">
+                <div className="bg-stone-950 p-6 text-white">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
+                    {authMode === "login" ? <LogIn className="h-6 w-6" /> : <UserPlus className="h-6 w-6" />}
+                  </div>
+                  <h2 className="font-serif text-center text-3xl font-black">
+                    {authMode === "login" ? "Connexion" : "Nouveau utilisateur"}
+                  </h2>
+                  <p className="mt-2 text-center text-sm text-white/70">
+                    Connectez votre email d'abonnement pour accéder au questionnaire.
+                  </p>
+                </div>
+
+                <div className="space-y-5 p-6">
+                  <div className="grid grid-cols-2 gap-2 rounded-2xl bg-stone-100 p-1">
+                    <button
+                      type="button"
+                      className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+                        authMode === "login" ? "bg-white text-indigo-600 shadow-sm" : "text-stone-500"
+                      }`}
+                      onClick={() => {
+                        setAuthMode("login");
+                        setSubscriptionError("");
+                      }}
+                    >
+                      Connexion
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-xl px-3 py-2 text-sm font-bold transition ${
+                        authMode === "signup" ? "bg-white text-indigo-600 shadow-sm" : "text-stone-500"
+                      }`}
+                      onClick={() => {
+                        setAuthMode("signup");
+                        setSubscriptionError("");
+                      }}
+                    >
+                      Nouveau utilisateur
+                    </button>
+                  </div>
+
+                  <form onSubmit={(event) => void handleStart(event)} className="space-y-4 text-left">
+                    {authMode === "signup" && (
+                      <div className="space-y-2">
+                        <label htmlFor="name" className="text-sm font-semibold">
+                          {t.nameLabel}
+                        </label>
+                        <Input
+                          id="name"
+                          value={userName}
+                          onChange={(event) => setUserName(event.target.value)}
+                          placeholder={t.namePlaceholder}
+                          className="h-12"
+                          autoFocus
+                        />
+                      </div>
+                    )}
+
+                    {authMode === "login" && userName.trim() && (
+                      <div className="space-y-2">
+                        <label htmlFor="login-name" className="text-sm font-semibold">
+                          Prénom affiché
+                        </label>
+                        <Input
+                          id="login-name"
+                          value={userName}
+                          onChange={(event) => setUserName(event.target.value)}
+                          placeholder={t.namePlaceholder}
+                          className="h-12"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <label htmlFor="subscription-email" className="text-sm font-semibold">
+                        Email de votre abonnement
+                      </label>
+                      <Input
+                        id="subscription-email"
+                        type="email"
+                        value={subscriberEmail}
+                        onChange={(event) => setSubscriberEmail(event.target.value)}
+                        placeholder="vous@exemple.com"
+                        className="h-12"
+                        autoFocus={authMode === "login"}
+                      />
+                      <p className="text-xs text-stone-500">
+                        Utilisez l'email lié à votre abonnement Starter ou Premium.
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-950">
+                      <div className="flex items-start gap-2">
+                        <Lock className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+                        <p>
+                          Starter donne accès au questionnaire et au plan d'action. Premium ajoute les outils business,
+                          l'agent IA et les recommandations avancées.
+                        </p>
+                      </div>
+                    </div>
+
+                    {subscriptionError && (
+                      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {subscriptionError}
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={
+                        !subscriberEmail.trim() ||
+                        (authMode === "signup" && !userName.trim()) ||
+                        subscriptionLoading
+                      }
+                      className="h-12 w-full"
+                    >
+                      {subscriptionLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Vérification...
+                        </>
+                      ) : (
+                        <>
+                          {authMode === "login" ? "Se connecter et commencer" : "Créer mon accès et commencer"}
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+
+                  <p className="text-center text-xs text-stone-500">
+                    Pas encore abonné ?{" "}
+                    <button type="button" className="font-bold text-indigo-600" onClick={() => setLocation("/pricing")}>
+                      Voir les abonnements
+                    </button>
+                  </p>
+                </div>
+              </Card>
             </motion.div>
           )}
 
