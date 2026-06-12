@@ -63,6 +63,7 @@ Structure your response as JSON with exactly these fields:
 {
   "businessName": "Short, catchy business type name (max 8 words, in ${responseLang})",
   "businessDescription": "Detailed description of the recommended business (3-4 sentences, in ${responseLang})",
+  "earningPotential": "Realistic but attractive revenue potential for this specific business, in ${responseLang}. Give monthly ranges with stages, e.g. beginner, validated, strong execution. Avoid guarantees and explain that results depend on execution, niche and acquisition.",
   "whyItFits": "Personalised explanation of why this business fits the profile (3-4 sentences, reference the quiz answers, in ${responseLang})",
   "actionPlan": "Detailed numbered action plan (minimum 6 concrete, actionable steps, each step on its own line as '1. Step...', in ${responseLang})"
 }
@@ -102,6 +103,7 @@ Analyse this profile and recommend the ideal business with a personalised action
     let parsedResult: {
       businessName: string;
       businessDescription: string;
+      earningPotential?: string;
       whyItFits: string;
       actionPlan: string;
     } | null = null;
@@ -122,6 +124,9 @@ Analyse this profile and recommend the ideal business with a personalised action
           userName: userName ?? null,
           businessName: parsedResult.businessName,
           businessDescription: parsedResult.businessDescription,
+          earningPotential:
+            parsedResult.earningPotential?.trim() ||
+            "Potentiel réaliste : 500 à 2 000 €/mois au démarrage, 3 000 à 10 000 €/mois une fois l'offre validée, davantage avec une acquisition solide. Les résultats dépendent du marché, de l'exécution et de la régularité.",
           whyItFits: parsedResult.whyItFits,
           actionPlan: parsedResult.actionPlan,
           answersJson: JSON.stringify(answers),

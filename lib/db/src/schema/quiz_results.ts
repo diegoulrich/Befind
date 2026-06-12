@@ -7,6 +7,7 @@ export const quizResultsTable = pgTable("quiz_results", {
   userName: text("user_name"),
   businessName: text("business_name").notNull(),
   businessDescription: text("business_description").notNull(),
+  earningPotential: text("earning_potential").notNull().default("Potentiel à préciser selon l'exécution et le marché."),
   whyItFits: text("why_it_fits").notNull(),
   actionPlan: text("action_plan").notNull(),
   answersJson: text("answers_json").notNull(),

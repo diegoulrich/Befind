@@ -2,7 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { de, enUS, es, fr, it, pt, type Locale } from "date-fns/locale";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Calendar, ChevronDown, ChevronUp, Globe, User } from "lucide-react";
+import { ArrowLeft, Calendar, ChevronDown, ChevronUp, DollarSign, Globe, User } from "lucide-react";
 import { useLocation } from "wouter";
 import { useListResults } from "@workspace/api-client-react";
 
@@ -86,6 +86,10 @@ export default function History() {
                   >
                     <div className="min-w-0 flex-1">
                       <h3 className="font-serif mb-2 text-2xl font-bold">{result.businessName}</h3>
+                      <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
+                        <DollarSign className="h-4 w-4" />
+                        {result.earningPotential}
+                      </p>
                       <p className="line-clamp-2 mb-4 text-stone-600">{result.businessDescription}</p>
                       <div className="flex flex-wrap items-center gap-4 text-sm text-stone-500">
                         <span className="flex items-center gap-1.5">
@@ -110,6 +114,12 @@ export default function History() {
                         className="overflow-hidden"
                       >
                         <div className="space-y-6 border-t p-6">
+                          <div>
+                            <h4 className="mb-2 text-lg font-bold">Potentiel de revenus</h4>
+                            <p className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-medium text-emerald-900">
+                              {result.earningPotential}
+                            </p>
+                          </div>
                           <div>
                             <h4 className="mb-2 text-lg font-bold">{t.whyFitsTitle}</h4>
                             <p className="text-stone-600">{result.whyItFits}</p>

@@ -22,6 +22,7 @@ export const QuizResultSchema = z.object({
   userName: z.string().nullable(),
   businessName: z.string(),
   businessDescription: z.string(),
+  earningPotential: z.string(),
   whyItFits: z.string(),
   actionPlan: z.string(),
   answersJson: z.string(),

@@ -7,6 +7,7 @@ import {
   Bot,
   ClipboardList,
   Cpu,
+  DollarSign,
   Globe,
   History as HistoryIcon,
   Loader2,
@@ -666,6 +667,25 @@ export default function Home() {
                 <span className="text-sm font-bold uppercase tracking-widest text-indigo-600">{t.recommendation}</span>
                 <h1 className="font-serif text-5xl font-black md:text-7xl">{finalResult.businessName}</h1>
               </div>
+
+              <Card className="overflow-hidden border-2 border-emerald-100 bg-gradient-to-br from-emerald-50 to-white">
+                <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                    <DollarSign className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-700">
+                      Potentiel du business
+                    </span>
+                    <h2 className="font-serif mt-1 text-2xl font-black">Combien ça peut rapporter ?</h2>
+                    <p className="mt-2 text-lg leading-relaxed text-stone-700">{finalResult.earningPotential}</p>
+                    <p className="mt-3 text-xs text-stone-500">
+                      Estimation réaliste mais non garantie : les résultats dépendent de l'exécution, du marché, de la
+                      niche et de l'acquisition client.
+                    </p>
+                  </div>
+                </div>
+              </Card>
 
               <section>
                 <h3 className="mb-4 flex items-center gap-2 text-2xl font-bold">
