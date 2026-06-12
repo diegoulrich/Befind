@@ -13,12 +13,18 @@ export const SubmitQuizBody = z.object({
   language: z.enum(["fr", "en", "es", "de", "pt", "it"]).optional(),
 });
 
+export const AlternativeQuizBody = z.object({
+  email: z.string().trim().email(),
+  language: z.enum(["fr", "en", "es", "de", "pt", "it"]).optional(),
+});
+
 export const GetResultParams = z.object({
   id: z.coerce.number().int().positive(),
 });
 
 export const QuizResultSchema = z.object({
   id: z.number(),
+  email: z.string().nullable(),
   userName: z.string().nullable(),
   businessName: z.string(),
   businessDescription: z.string(),
@@ -26,6 +32,9 @@ export const QuizResultSchema = z.object({
   whyItFits: z.string(),
   actionPlan: z.string(),
   answersJson: z.string(),
+  isAlternative: z.boolean(),
+  originResultId: z.number().nullable(),
+  alternativeSuggestionsUsed: z.number().optional(),
   createdAt: z.coerce.date(),
 });
 
@@ -38,4 +47,5 @@ export const HealthCheckResponse = z.object({
 
 export type QuizAnswer = z.infer<typeof QuizAnswerSchema>;
 export type SubmitQuizBodyType = z.infer<typeof SubmitQuizBody>;
+export type AlternativeQuizBodyType = z.infer<typeof AlternativeQuizBody>;
 export type QuizResult = z.infer<typeof QuizResultSchema>;

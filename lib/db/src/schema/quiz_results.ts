@@ -1,9 +1,10 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const quizResultsTable = pgTable("quiz_results", {
   id: serial("id").primaryKey(),
+  email: text("email"),
   userName: text("user_name"),
   businessName: text("business_name").notNull(),
   businessDescription: text("business_description").notNull(),
@@ -11,6 +12,8 @@ export const quizResultsTable = pgTable("quiz_results", {
   whyItFits: text("why_it_fits").notNull(),
   actionPlan: text("action_plan").notNull(),
   answersJson: text("answers_json").notNull(),
+  isAlternative: boolean("is_alternative").notNull().default(false),
+  originResultId: integer("origin_result_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

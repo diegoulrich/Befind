@@ -16,18 +16,21 @@ interface Plan {
 
 const FEATURES: Record<string, string[]> = {
   starter: [
-    "Quiz illimité",
-    "3 recommandations / mois",
+    "1 passage du questionnaire",
+    "1 recommandation business personnalisée",
+    "Potentiel de revenus réaliste",
     "Plan d'action personnalisé",
-    "Historique des résultats",
+    "Accès à l'historique des résultats",
     "Support par email",
   ],
   premium: [
-    "Quiz illimité",
-    "Recommandations illimitées",
-    "Plan d'action avancé",
-    "Accès au Chatbot Befind IA",
-    "Générateur de boutique IA",
+    "Tout ce que Starter contient",
+    "5 passages du questionnaire",
+    "2 propositions alternatives si le business ne plaît pas",
+    "Outils Befind selon le business recommandé",
+    "Produits et niches gagnantes pour l'e-commerce",
+    "Générateur de boutique IA pour l'e-commerce",
+    "Agent IA spécialisé sur le business recommandé",
     "Support prioritaire",
   ],
 };

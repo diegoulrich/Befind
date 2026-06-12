@@ -14,6 +14,7 @@ import {
   Lock,
   LogIn,
   PlayCircle,
+  RefreshCw,
   Rocket,
   Send,
   ShoppingBag,
@@ -111,6 +112,8 @@ export default function Home() {
   const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState("");
+  const [alternativeError, setAlternativeError] = useState("");
+  const [alternativeLoading, setAlternativeLoading] = useState(false);
   const [agentQuestion, setAgentQuestion] = useState("");
   const [agentMessages, setAgentMessages] = useState<BusinessAgentMessage[]>([]);
   const [agentLoading, setAgentLoading] = useState(false);
@@ -137,6 +140,8 @@ export default function Home() {
     setSubscriberUnlocked(false);
     setSubscriptionPlan(null);
     setSubscriptionError("");
+    setAlternativeError("");
+    setAlternativeLoading(false);
     setAgentQuestion("");
     setAgentMessages([]);
     setAgentLoading(false);
@@ -152,13 +157,15 @@ export default function Home() {
     setSubscriptionError("");
 
     try {
-      const response = await fetch(`/api/shop/subscription/${encodeURIComponent(email)}`);
+      const response = await fetch(`/api/quiz/access/${encodeURIComponent(email)}`);
       const data = (await response.json()) as {
         active?: boolean;
-        eligible?: boolean;
         plan?: SubscriptionPlan;
         canTakeQuiz?: boolean;
         canUsePremiumTools?: boolean;
+        attemptsUsed?: number;
+        limit?: number;
+        message?: string | null;
         error?: string;
       };
 
@@ -167,7 +174,7 @@ export default function Home() {
       }
 
       if (!data.active || !data.canTakeQuiz) {
-        setSubscriptionError("Un abonnement Starter ou Premium actif est requis pour faire le questionnaire.");
+        setSubscriptionError(data.message ?? "Un abonnement Starter ou Premium actif est requis pour faire le questionnaire.");
         return;
       }
 
@@ -342,6 +349,46 @@ export default function Home() {
       ]);
     } finally {
       setAgentLoading(false);
+    }
+  };
+
+  const requestAlternativeBusiness = async () => {
+    if (!finalResult || !subscriberEmail.trim() || alternativeLoading) return;
+
+    setAlternativeLoading(true);
+    setAlternativeError("");
+
+    try {
+      const response = await fetch(`/api/quiz/results/${finalResult.id}/alternative`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: subscriberEmail.trim().toLowerCase(),
+          language: lang,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        resultId?: number;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.resultId) {
+        throw new Error(data.message ?? data.error ?? "alternative failed");
+      }
+
+      setResultId(data.resultId);
+      setAgentMessages([]);
+      setAgentQuestion("");
+    } catch (err) {
+      setAlternativeError(
+        err instanceof Error
+          ? err.message
+          : "Impossible de générer une autre proposition pour le moment.",
+      );
+    } finally {
+      setAlternativeLoading(false);
     }
   };
 
@@ -686,6 +733,51 @@ export default function Home() {
                   </div>
                 </div>
               </Card>
+
+              {subscriberUnlocked && (
+                <Card className="border-2 border-indigo-100 p-6">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-700">
+                        <RefreshCw className="h-3.5 w-3.5" /> Premium
+                      </span>
+                      <h3 className="font-serif mt-3 text-2xl font-black">Ce business ne vous plaît pas ?</h3>
+                      <p className="mt-1 text-sm text-stone-600">
+                        Demandez une autre proposition basée sur vos mêmes réponses. Vous pouvez le faire 2 fois maximum.
+                      </p>
+                    </div>
+                    <Button
+                      size="lg"
+                      className="h-12 shrink-0"
+                      disabled={(finalResult.alternativeSuggestionsUsed ?? 0) >= 2 || alternativeLoading}
+                      onClick={() => void requestAlternativeBusiness()}
+                    >
+                      {alternativeLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Génération...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4" /> Proposer un autre business
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-semibold text-indigo-700">
+                      Alternatives utilisées : {finalResult.alternativeSuggestionsUsed ?? 0}/2
+                    </span>
+                    {(finalResult.alternativeSuggestionsUsed ?? 0) >= 2 && (
+                      <span className="text-stone-500">Limite Premium atteinte pour ce résultat.</span>
+                    )}
+                  </div>
+                  {alternativeError && (
+                    <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {alternativeError}
+                    </div>
+                  )}
+                </Card>
+              )}
 
               <section>
                 <h3 className="mb-4 flex items-center gap-2 text-2xl font-bold">
