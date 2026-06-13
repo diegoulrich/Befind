@@ -892,6 +892,7 @@ export default function Home() {
                       <BusinessWorkspace
                         businessName={finalResult.businessName}
                         businessDescription={finalResult.businessDescription}
+                        subscriberEmail={subscriberEmail.trim().toLowerCase()}
                       />
 
                       {isOnlyFansManagement(finalResult.businessName, finalResult.businessDescription) && (

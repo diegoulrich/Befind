@@ -8,6 +8,7 @@ import History from "@/pages/History";
 import Home from "@/pages/Home";
 import MaBoutique from "@/pages/MaBoutique";
 import NotFound from "@/pages/not-found";
+import PremiumToolPage from "@/pages/PremiumToolPage";
 import Pricing from "@/pages/Pricing";
 import ShopBuilder from "@/pages/ShopBuilder";
 
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/shop-builder" component={ShopBuilder} />
       <Route path="/ma-boutique" component={MaBoutique} />
+      <Route path="/premium/:workspace/:module" component={PremiumToolPage} />
       <Route component={NotFound} />
     </Switch>
   );

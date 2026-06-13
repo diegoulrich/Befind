@@ -12,12 +12,14 @@ import {
   Target,
   Users,
 } from "lucide-react";
+import { useLocation } from "wouter";
 
 import { Card } from "@/components/ui/card";
 
 interface BusinessWorkspaceProps {
   businessName: string;
   businessDescription: string;
+  subscriberEmail: string;
 }
 
 interface WorkspaceTool {
@@ -796,6 +798,12 @@ function normalize(value: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function slugify(value: string): string {
+  return normalize(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function getWorkspaceConfig(businessName: string, businessDescription: string): WorkspaceConfig {
   const haystack = normalize(`${businessName} ${businessDescription}`);
   const match = WORKSPACES.find((workspace) =>
@@ -805,7 +813,12 @@ function getWorkspaceConfig(businessName: string, businessDescription: string): 
   return match ?? GENERIC_WORKSPACE;
 }
 
-export default function BusinessWorkspace({ businessName, businessDescription }: BusinessWorkspaceProps) {
+export default function BusinessWorkspace({
+  businessName,
+  businessDescription,
+  subscriberEmail,
+}: BusinessWorkspaceProps) {
+  const [, setLocation] = useLocation();
   const workspace = getWorkspaceConfig(businessName, businessDescription);
   const dashboard = DASHBOARDS[workspace.label] ?? DASHBOARDS["Business personnalisé"];
   const tools = [...workspace.tools, ...BASE_TOOLS];
@@ -885,6 +898,13 @@ export default function BusinessWorkspace({ businessName, businessDescription }:
                 <button
                   key={module}
                   type="button"
+                  onClick={() =>
+                    setLocation(
+                      `/premium/${slugify(workspace.label)}/${slugify(module)}?email=${encodeURIComponent(
+                        subscriberEmail,
+                      )}&business=${encodeURIComponent(businessName)}`,
+                    )
+                  }
                   className="rounded-2xl border bg-white p-4 text-left transition hover:border-indigo-400 hover:bg-indigo-50"
                 >
                   <p className="font-bold">{module}</p>
