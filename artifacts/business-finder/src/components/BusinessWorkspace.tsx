@@ -35,6 +35,27 @@ interface WorkspaceConfig {
   prompts: string[];
 }
 
+interface DashboardMetric {
+  label: string;
+  value: string;
+  helper: string;
+}
+
+interface PipelineColumn {
+  label: string;
+  count: string;
+  helper: string;
+}
+
+interface DashboardConfig {
+  title: string;
+  subtitle: string;
+  metrics: DashboardMetric[];
+  pipeline: PipelineColumn[];
+  todayActions: string[];
+  modules: string[];
+}
+
 const BASE_TOOLS: WorkspaceTool[] = [
   {
     title: "Plan d'exécution hebdomadaire",
@@ -523,6 +544,251 @@ const WORKSPACE_KEYWORDS: Record<string, string[]> = {
   "Finance / trading / investissement": ["trading", "finance", "investissement", "crypto", "bourse"],
 };
 
+const DASHBOARDS: Record<string, DashboardConfig> = {
+  "E-commerce": {
+    title: "Dashboard boutique",
+    subtitle: "Suivez produits, marge, tests publicitaires et progression boutique.",
+    metrics: [
+      { label: "Produits à tester", value: "3", helper: "Objectif semaine" },
+      { label: "Marge cible", value: "60%+", helper: "Avant coût pub" },
+      { label: "Angles pub", value: "5", helper: "À générer" },
+      { label: "Boutiques actives", value: "1", helper: "Créée avec IA" },
+    ],
+    pipeline: [
+      { label: "Idées produit", count: "12", helper: "À analyser" },
+      { label: "À sourcer", count: "4", helper: "Fournisseur/prix" },
+      { label: "En test", count: "2", helper: "Pub ou organique" },
+      { label: "Gagnant", count: "1", helper: "À scaler" },
+    ],
+    todayActions: [
+      "Choisir un produit à tester dans les niches gagnantes",
+      "Générer 3 hooks TikTok pour ce produit",
+      "Calculer marge, coût produit et prix de vente",
+    ],
+    modules: ["Produits gagnants", "Générateur boutique IA", "Fiches produits", "Tracker marge"],
+  },
+  "OnlyFans Management": {
+    title: "Dashboard agence créateurs",
+    subtitle: "Pilotez le recrutement, les créateurs actifs et les commissions.",
+    metrics: [
+      { label: "Créateurs prospectés", value: "30", helper: "Objectif semaine" },
+      { label: "Réponses positives", value: "5", helper: "À relancer" },
+      { label: "Appels prévus", value: "2", helper: "Cette semaine" },
+      { label: "Commission cible", value: "20%", helper: "Selon contrat" },
+    ],
+    pipeline: [
+      { label: "À contacter", count: "40", helper: "Liste qualifiée" },
+      { label: "Répondu", count: "8", helper: "Conversation ouverte" },
+      { label: "Call", count: "2", helper: "Présentation offre" },
+      { label: "Signé", count: "1", helper: "Onboarding" },
+    ],
+    todayActions: [
+      "Ajouter 10 créateurs qualifiés au CRM",
+      "Envoyer 5 messages personnalisés et éthiques",
+      "Préparer une proposition claire pour un appel",
+    ],
+    modules: ["CRM créateurs", "Scripts DM", "Calendrier opérations", "Tracker commissions"],
+  },
+  "Agence marketing / SMMA": {
+    title: "Dashboard agence marketing",
+    subtitle: "Suivez prospection, audits, propositions et clients actifs.",
+    metrics: [
+      { label: "Prospects ajoutés", value: "25", helper: "Objectif semaine" },
+      { label: "Audits envoyés", value: "3", helper: "À personnaliser" },
+      { label: "Calls bookés", value: "2", helper: "Pipeline chaud" },
+      { label: "MRR cible", value: "1k+", helper: "Par client" },
+    ],
+    pipeline: [
+      { label: "Prospects", count: "50", helper: "Commerce/niche" },
+      { label: "Contactés", count: "20", helper: "DM/email" },
+      { label: "Audit envoyé", count: "5", helper: "Preuve valeur" },
+      { label: "Client", count: "1", helper: "À onboarder" },
+    ],
+    todayActions: [
+      "Trouver 10 prospects dans une niche locale",
+      "Générer un mini-audit pour 2 prospects",
+      "Envoyer une proposition simple à un lead chaud",
+    ],
+    modules: ["CRM prospects", "Audit IA", "Propositions", "Calendrier client"],
+  },
+  "UGC Creator": {
+    title: "Dashboard collaborations UGC",
+    subtitle: "Gérez portfolio, marques, scripts et livraisons vidéo.",
+    metrics: [
+      { label: "Marques ciblées", value: "20", helper: "Objectif semaine" },
+      { label: "Scripts prêts", value: "5", helper: "À tourner" },
+      { label: "Deals actifs", value: "2", helper: "En livraison" },
+      { label: "Prix pack", value: "300+", helper: "CHF/pack début" },
+    ],
+    pipeline: [
+      { label: "À contacter", count: "30", helper: "Marques fit" },
+      { label: "Répondu", count: "6", helper: "Brief demandé" },
+      { label: "En prod", count: "2", helper: "Tournage" },
+      { label: "Payé", count: "1", helper: "À archiver" },
+    ],
+    todayActions: [
+      "Créer 1 vidéo portfolio courte",
+      "Contacter 5 marques avec un pitch personnalisé",
+      "Écrire 2 scripts UGC pour une niche ciblée",
+    ],
+    modules: ["Portfolio UGC", "Scripts vidéo", "Tracker marques", "Tarifs"],
+  },
+  "Coaching / formation": {
+    title: "Dashboard coaching",
+    subtitle: "Suivez prospects, appels découverte, clients et progression des programmes.",
+    metrics: [
+      { label: "Appels proposés", value: "5", helper: "Objectif semaine" },
+      { label: "Clients actifs", value: "3", helper: "À suivre" },
+      { label: "Contenus publiés", value: "3", helper: "Acquisition" },
+      { label: "Offre cible", value: "500+", helper: "CHF/client" },
+    ],
+    pipeline: [
+      { label: "Audience", count: "100", helper: "À engager" },
+      { label: "Leads", count: "12", helper: "Intéressés" },
+      { label: "Call", count: "4", helper: "Diagnostic" },
+      { label: "Client", count: "2", helper: "Programme" },
+    ],
+    todayActions: [
+      "Publier un contenu éducatif avec CTA",
+      "Inviter 3 prospects à un appel découverte",
+      "Améliorer un module du programme",
+    ],
+    modules: ["Programme IA", "CRM clients", "Scripts d'appel", "Plan contenu"],
+  },
+  "SaaS / outil IA": {
+    title: "Dashboard produit",
+    subtitle: "Pilotez MVP, validation, roadmap et feedback utilisateurs.",
+    metrics: [
+      { label: "Interviews", value: "5", helper: "Objectif semaine" },
+      { label: "Features MVP", value: "3", helper: "Prioritaires" },
+      { label: "Feedbacks", value: "10", helper: "À classer" },
+      { label: "Préventes", value: "1", helper: "Signal fort" },
+    ],
+    pipeline: [
+      { label: "Problèmes", count: "8", helper: "À valider" },
+      { label: "Demandes", count: "12", helper: "Feedback" },
+      { label: "Build", count: "3", helper: "MVP" },
+      { label: "Users", count: "5", helper: "Beta" },
+    ],
+    todayActions: [
+      "Planifier 2 interviews utilisateurs",
+      "Prioriser une seule fonctionnalité MVP",
+      "Améliorer la promesse de landing page",
+    ],
+    modules: ["Roadmap", "Validation marché", "Landing page", "Feedback utilisateurs"],
+  },
+  "Freelance / no-code / IA": {
+    title: "Dashboard freelance",
+    subtitle: "Suivez offres, prospection, devis et projets actifs.",
+    metrics: [
+      { label: "Prospects ciblés", value: "15", helper: "Objectif semaine" },
+      { label: "Devis envoyés", value: "3", helper: "À relancer" },
+      { label: "Projets actifs", value: "2", helper: "Livraison" },
+      { label: "Ticket moyen", value: "1.5k", helper: "CHF/projet" },
+    ],
+    pipeline: [
+      { label: "À contacter", count: "25", helper: "Niche cible" },
+      { label: "Call", count: "4", helper: "Découverte" },
+      { label: "Devis", count: "3", helper: "Envoyés" },
+      { label: "Signé", count: "1", helper: "Projet" },
+    ],
+    todayActions: [
+      "Contacter 5 prospects avec une offre packagée",
+      "Préparer un devis clair pour un lead chaud",
+      "Mettre à jour les tâches du projet actif",
+    ],
+    modules: ["Offres packagées", "Devis", "Pipeline clients", "Suivi projets"],
+  },
+  "Services locaux": {
+    title: "Dashboard local",
+    subtitle: "Suivez visibilité locale, réservations, clients et avis.",
+    metrics: [
+      { label: "Demandes", value: "10", helper: "Objectif semaine" },
+      { label: "Réservations", value: "4", helper: "À confirmer" },
+      { label: "Avis clients", value: "5", helper: "À demander" },
+      { label: "Prix moyen", value: "120", helper: "CHF/service" },
+    ],
+    pipeline: [
+      { label: "Leads", count: "18", helper: "WhatsApp/site" },
+      { label: "Devis", count: "7", helper: "Envoyés" },
+      { label: "Réservé", count: "4", helper: "Planning" },
+      { label: "Avis", count: "3", helper: "À publier" },
+    ],
+    todayActions: [
+      "Relancer 5 anciens clients",
+      "Publier un post Google Business",
+      "Demander 2 avis après prestation",
+    ],
+    modules: ["Mini-site local", "Google Business", "Flyers/scripts", "Réservations"],
+  },
+  "Création de contenu": {
+    title: "Dashboard contenu",
+    subtitle: "Planifiez idées, scripts, publications et analyse performance.",
+    metrics: [
+      { label: "Idées générées", value: "20", helper: "Cette semaine" },
+      { label: "Scripts prêts", value: "3", helper: "À produire" },
+      { label: "Publications", value: "5", helper: "Objectif" },
+      { label: "Contenus gagnants", value: "2", helper: "À recycler" },
+    ],
+    pipeline: [
+      { label: "Idées", count: "30", helper: "Backlog" },
+      { label: "Script", count: "6", helper: "En cours" },
+      { label: "Tourné", count: "3", helper: "Montage" },
+      { label: "Publié", count: "5", helper: "Analyse" },
+    ],
+    todayActions: [
+      "Générer 5 titres et hooks",
+      "Écrire un script complet",
+      "Analyser le meilleur contenu de la semaine",
+    ],
+    modules: ["Idées virales", "Scripts", "Calendrier", "Tracker vues/revenus"],
+  },
+  "Finance / trading / investissement": {
+    title: "Dashboard discipline",
+    subtitle: "Journalisez décisions, risques, performance et apprentissages.",
+    metrics: [
+      { label: "Journal rempli", value: "100%", helper: "Objectif" },
+      { label: "Risque max", value: "1%", helper: "Par décision" },
+      { label: "Erreurs évitées", value: "3", helper: "Cette semaine" },
+      { label: "Leçons", value: "2", helper: "À revoir" },
+    ],
+    pipeline: [
+      { label: "Idées", count: "6", helper: "À analyser" },
+      { label: "Validées", count: "2", helper: "Checklist OK" },
+      { label: "En suivi", count: "3", helper: "Journal" },
+      { label: "Appris", count: "2", helper: "Review" },
+    ],
+    todayActions: [
+      "Remplir la checklist avant toute décision",
+      "Écrire l'hypothèse et le risque maximum",
+      "Relire les erreurs de la semaine",
+    ],
+    modules: ["Journal", "Checklist risque", "Performance", "Formation"],
+  },
+  "Business personnalisé": {
+    title: "Dashboard business",
+    subtitle: "Suivez l'acquisition, l'offre, les revenus et les priorités d'exécution.",
+    metrics: [
+      { label: "Prospects", value: "10", helper: "Objectif semaine" },
+      { label: "Offres testées", value: "1", helper: "À valider" },
+      { label: "Actions faites", value: "5", helper: "Cette semaine" },
+      { label: "Objectif revenu", value: "1k", helper: "CHF/mois" },
+    ],
+    pipeline: [
+      { label: "Idées", count: "10", helper: "À filtrer" },
+      { label: "Prospects", count: "20", helper: "À contacter" },
+      { label: "Discussions", count: "5", helper: "Besoin clair" },
+      { label: "Ventes", count: "1", helper: "Preuve" },
+    ],
+    todayActions: [
+      "Clarifier l'offre en une phrase",
+      "Contacter 5 prospects qualifiés",
+      "Noter objections et prochaines actions",
+    ],
+    modules: ["CRM", "Offre", "Acquisition", "Progression"],
+  },
+};
+
 function normalize(value: string): string {
   return value
     .toLowerCase()
@@ -541,6 +807,7 @@ function getWorkspaceConfig(businessName: string, businessDescription: string): 
 
 export default function BusinessWorkspace({ businessName, businessDescription }: BusinessWorkspaceProps) {
   const workspace = getWorkspaceConfig(businessName, businessDescription);
+  const dashboard = DASHBOARDS[workspace.label] ?? DASHBOARDS["Business personnalisé"];
   const tools = [...workspace.tools, ...BASE_TOOLS];
 
   return (
@@ -552,6 +819,82 @@ export default function BusinessWorkspace({ businessName, businessDescription }:
         <h4 className="font-serif mt-3 text-2xl font-black">{workspace.label}</h4>
         <p className="mt-1 text-sm text-stone-600">{workspace.description}</p>
       </div>
+
+      <Card className="overflow-hidden border-2 border-indigo-100">
+        <div className="bg-gradient-to-br from-indigo-600 to-stone-950 p-6 text-white">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-widest">
+            <BarChart3 className="h-3.5 w-3.5" /> Dashboard Premium
+          </span>
+          <h5 className="font-serif mt-3 text-3xl font-black">{dashboard.title}</h5>
+          <p className="mt-2 max-w-2xl text-sm text-white/75">{dashboard.subtitle}</p>
+        </div>
+
+        <div className="space-y-6 p-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {dashboard.metrics.map((metric) => (
+              <div key={metric.label} className="rounded-2xl border bg-white p-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-widest text-stone-500">{metric.label}</p>
+                <p className="mt-2 text-3xl font-black text-stone-950">{metric.value}</p>
+                <p className="mt-1 text-xs text-stone-500">{metric.helper}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <Card className="p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Target className="h-5 w-5 text-indigo-600" />
+                <h5 className="font-bold">Pipeline</h5>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-4">
+                {dashboard.pipeline.map((column) => (
+                  <div key={column.label} className="rounded-2xl border bg-stone-50 p-3">
+                    <p className="text-sm font-bold">{column.label}</p>
+                    <p className="mt-2 text-2xl font-black text-indigo-600">{column.count}</p>
+                    <p className="mt-1 text-xs text-stone-500">{column.helper}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-indigo-600" />
+                <h5 className="font-bold">Actions du jour</h5>
+              </div>
+              <div className="space-y-3">
+                {dashboard.todayActions.map((action, idx) => (
+                  <label key={action} className="flex items-start gap-3 rounded-xl border bg-white p-3 text-sm">
+                    <input type="checkbox" className="mt-1" />
+                    <span>
+                      <span className="font-bold text-indigo-600">{idx + 1}.</span> {action}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          <Card className="p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-indigo-600" />
+              <h5 className="font-bold">Modules du dashboard</h5>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {dashboard.modules.map((module) => (
+                <button
+                  key={module}
+                  type="button"
+                  className="rounded-2xl border bg-white p-4 text-left transition hover:border-indigo-400 hover:bg-indigo-50"
+                >
+                  <p className="font-bold">{module}</p>
+                  <p className="mt-1 text-xs text-stone-500">Ouvrir le module</p>
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         {tools.map((tool) => (
