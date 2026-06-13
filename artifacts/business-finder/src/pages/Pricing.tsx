@@ -10,9 +10,17 @@ interface Plan {
   id: string;
   name: string;
   description: string;
-  prices: { id: string; unit_amount: number | null; currency: string }[];
+  prices: {
+    id: string;
+    unit_amount: number | null;
+    currency: string;
+    recurring?: { interval?: "month" | "year" | string } | null;
+  }[];
   metadata: { tier?: string };
 }
+
+type BillingCycle = "monthly" | "annual";
+type Tier = "starter" | "premium";
 
 const FEATURES: Record<string, string[]> = {
   starter: [
@@ -43,10 +51,22 @@ function formatPrice(amount: number, currency: string) {
   }).format(amount / 100);
 }
 
+const STATIC_PRICES: Record<Tier, Record<BillingCycle, { displayMonthly: number; checkoutAmount: number }>> = {
+  starter: {
+    monthly: { displayMonthly: 1900, checkoutAmount: 1900 },
+    annual: { displayMonthly: 1500, checkoutAmount: 18000 },
+  },
+  premium: {
+    monthly: { displayMonthly: 3900, checkoutAmount: 3900 },
+    annual: { displayMonthly: 3000, checkoutAmount: 36000 },
+  },
+};
+
 export default function Pricing() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,13 +89,18 @@ export default function Pricing() {
     };
   }, []);
 
-  const handleCheckout = async (priceId: string) => {
-    setCheckoutLoading(priceId);
+  const handleCheckout = async (plan: { tier: Tier; name: string; priceId?: string }) => {
+    const loadingKey = `${plan.tier}-${billingCycle}`;
+    setCheckoutLoading(loadingKey);
     try {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId }),
+        body: JSON.stringify({
+          priceId: plan.priceId,
+          tier: plan.tier,
+          billingCycle,
+        }),
       });
       const data = await response.json();
       if (data.url) {
@@ -97,28 +122,39 @@ export default function Pricing() {
         (plan.metadata?.tier ?? "").toLowerCase() === keyword,
     );
 
+  const findPrice = (tier: Tier, cycle: BillingCycle) => {
+    const interval = cycle === "annual" ? "year" : "month";
+    return findPlan(tier)?.prices?.find((price) => price.recurring?.interval === interval);
+  };
+
   const staticPlans = [
     {
       tier: "starter",
       name: "Starter",
-      price: "19€",
-      period: "/mois",
+      fallback: STATIC_PRICES.starter[billingCycle],
       description: "Idéal pour démarrer et explorer vos opportunités business.",
       highlight: false,
-      priceId: findPlan("starter")?.prices?.[0]?.id,
-      dynamicPrice: findPlan("starter")?.prices?.[0],
+      priceId: findPrice("starter", billingCycle)?.id,
+      dynamicPrice: findPrice("starter", billingCycle),
     },
     {
       tier: "premium",
       name: "Premium",
-      price: "29€",
-      period: "/mois",
+      fallback: STATIC_PRICES.premium[billingCycle],
       description: "Pour aller plus loin avec un accompagnement complet par IA.",
       highlight: true,
-      priceId: findPlan("premium")?.prices?.[0]?.id,
-      dynamicPrice: findPlan("premium")?.prices?.[0],
+      priceId: findPrice("premium", billingCycle)?.id,
+      dynamicPrice: findPrice("premium", billingCycle),
     },
-  ];
+  ] satisfies {
+    tier: Tier;
+    name: string;
+    fallback: { displayMonthly: number; checkoutAmount: number };
+    description: string;
+    highlight: boolean;
+    priceId?: string;
+    dynamicPrice?: Plan["prices"][number];
+  }[];
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -131,6 +167,29 @@ export default function Pricing() {
           <p className="mx-auto max-w-xl text-lg text-stone-600">
             Débloquez votre potentiel entrepreneurial avec un abonnement befind.
           </p>
+          <div className="mx-auto mt-8 inline-flex rounded-2xl bg-white p-1 shadow-sm border border-stone-200">
+            <button
+              type="button"
+              className={`rounded-xl px-5 py-2 text-sm font-bold transition ${
+                billingCycle === "monthly" ? "bg-indigo-600 text-white" : "text-stone-500"
+              }`}
+              onClick={() => setBillingCycle("monthly")}
+            >
+              Mensuel
+            </button>
+            <button
+              type="button"
+              className={`rounded-xl px-5 py-2 text-sm font-bold transition ${
+                billingCycle === "annual" ? "bg-indigo-600 text-white" : "text-stone-500"
+              }`}
+              onClick={() => setBillingCycle("annual")}
+            >
+              Annuel
+              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                meilleur prix
+              </span>
+            </button>
+          </div>
           {loading && <p className="mt-3 text-sm text-stone-500">Chargement des plans Stripe...</p>}
         </motion.div>
 
@@ -151,12 +210,29 @@ export default function Pricing() {
                   <p className="mb-4 text-sm text-stone-600">{plan.description}</p>
                   <div className="flex items-end gap-1">
                     <span className="text-4xl font-bold">
-                      {plan.dynamicPrice?.unit_amount
-                        ? formatPrice(plan.dynamicPrice.unit_amount, plan.dynamicPrice.currency)
-                        : plan.price}
+                      {formatPrice(
+                        plan.dynamicPrice?.unit_amount
+                          ? billingCycle === "annual"
+                            ? Math.round(plan.dynamicPrice.unit_amount / 12)
+                            : plan.dynamicPrice.unit_amount
+                          : plan.fallback.displayMonthly,
+                        plan.dynamicPrice?.currency ?? "chf",
+                      )}
                     </span>
-                    <span className="mb-1 text-stone-500">{plan.period}</span>
+                    <span className="mb-1 text-stone-500">/mois</span>
                   </div>
+                  {billingCycle === "annual" && (
+                    <div className="mt-2 text-sm text-stone-500">
+                      <span className="font-semibold">
+                        x12 ={" "}
+                        {formatPrice(
+                          plan.dynamicPrice?.unit_amount ?? plan.fallback.checkoutAmount,
+                          plan.dynamicPrice?.currency ?? "chf",
+                        )}
+                      </span>{" "}
+                      facturés en une fois par an
+                    </div>
+                  )}
                 </div>
 
                 <ul className="mb-8 flex-1 space-y-3">
@@ -174,17 +250,18 @@ export default function Pricing() {
                   size="lg"
                   disabled={checkoutLoading !== null}
                   onClick={() => {
-                    if (plan.priceId) {
-                      void handleCheckout(plan.priceId);
-                    } else {
-                      toast({
-                        title: "Bientôt disponible",
-                        description: "Les plans seront disponibles très prochainement.",
-                      });
-                    }
+                    void handleCheckout(plan);
                   }}
                 >
-                  {checkoutLoading === plan.priceId ? "Redirection..." : `Commencer avec ${plan.name}`}
+                  {checkoutLoading === `${plan.tier}-${billingCycle}`
+                    ? "Redirection..."
+                    : billingCycle === "annual"
+                      ? `Payer ${
+                          plan.dynamicPrice?.unit_amount
+                            ? formatPrice(plan.dynamicPrice.unit_amount, plan.dynamicPrice.currency)
+                            : formatPrice(plan.fallback.checkoutAmount, "chf")
+                        } / an`
+                      : `Commencer avec ${plan.name}`}
                 </Button>
               </Card>
             </motion.div>
