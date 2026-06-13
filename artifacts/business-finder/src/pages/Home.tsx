@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { getGetResultQueryKey, useGetResult, type QuizAnswer } from "@workspace/api-client-react";
 
+import BusinessWorkspace from "@/components/BusinessWorkspace";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -888,6 +889,11 @@ export default function Home() {
                     </form>
                   ) : (
                     <div className="space-y-8">
+                      <BusinessWorkspace
+                        businessName={finalResult.businessName}
+                        businessDescription={finalResult.businessDescription}
+                      />
+
                       {isOnlyFansManagement(finalResult.businessName, finalResult.businessDescription) && (
                         <section className="space-y-4">
                           <div>
