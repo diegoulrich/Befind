@@ -67,6 +67,7 @@ export default function Pricing() {
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [checkoutEmail, setCheckoutEmail] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -89,6 +90,23 @@ export default function Pricing() {
     };
   }, []);
 
+  useEffect(() => {
+    const token = window.localStorage.getItem("befind_auth_token");
+    if (!token) return;
+
+    fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("invalid session");
+        return response.json() as Promise<{ user: { email: string } }>;
+      })
+      .then(({ user }) => setCheckoutEmail(user.email))
+      .catch(() => {
+        window.localStorage.removeItem("befind_auth_token");
+      });
+  }, []);
+
   const handleCheckout = async (plan: { tier: Tier; name: string; priceId?: string }) => {
     const loadingKey = `${plan.tier}-${billingCycle}`;
     setCheckoutLoading(loadingKey);
@@ -100,6 +118,7 @@ export default function Pricing() {
           priceId: plan.priceId,
           tier: plan.tier,
           billingCycle,
+          email: checkoutEmail.trim() || undefined,
         }),
       });
       const data = await response.json();
@@ -189,6 +208,22 @@ export default function Pricing() {
                 meilleur prix
               </span>
             </button>
+          </div>
+          <div className="mx-auto mt-5 max-w-md text-left">
+            <label htmlFor="checkout-email" className="text-sm font-semibold text-stone-700">
+              Email du compte
+            </label>
+            <input
+              id="checkout-email"
+              type="email"
+              value={checkoutEmail}
+              onChange={(event) => setCheckoutEmail(event.target.value)}
+              placeholder="vous@exemple.com"
+              className="mt-2 h-12 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+            <p className="mt-1 text-xs text-stone-500">
+              Utilisez le même email pour votre compte Befind et votre abonnement Stripe.
+            </p>
           </div>
           {loading && <p className="mt-3 text-sm text-stone-500">Chargement des plans Stripe...</p>}
         </motion.div>

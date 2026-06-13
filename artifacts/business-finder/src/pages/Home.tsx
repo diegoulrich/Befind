@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -36,6 +36,13 @@ import { LANGUAGES, TRANSLATIONS, type Language } from "@/lib/translations";
 type Step = "welcome" | "auth" | "quiz" | "loading" | "result";
 type AuthMode = "login" | "signup";
 type SubscriptionPlan = "starter" | "premium" | null;
+
+interface AuthUser {
+  id: number;
+  email: string;
+  name: string;
+  phone: string | null;
+}
 
 interface BusinessAgentMessage {
   role: "user" | "assistant";
@@ -102,6 +109,10 @@ export default function Home() {
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [step, setStep] = useState<Step>("welcome");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authToken, setAuthToken] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authPhone, setAuthPhone] = useState("");
   const [userName, setUserName] = useState("");
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswer[]>([]);
@@ -129,6 +140,31 @@ export default function Home() {
     },
   });
 
+  useEffect(() => {
+    const storedToken = window.localStorage.getItem("befind_auth_token");
+    if (!storedToken) return;
+
+    setAuthToken(storedToken);
+    fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${storedToken}` },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("invalid session");
+        return response.json() as Promise<{ user: AuthUser }>;
+      })
+      .then(({ user }) => {
+        setAuthUser(user);
+        setUserName(user.name);
+        setSubscriberEmail(user.email);
+        setAuthPhone(user.phone ?? "");
+      })
+      .catch(() => {
+        window.localStorage.removeItem("befind_auth_token");
+        setAuthToken("");
+        setAuthUser(null);
+      });
+  }, []);
+
   const handleRestart = () => {
     setStep("welcome");
     setAuthMode("login");
@@ -137,7 +173,7 @@ export default function Home() {
     setResultId(null);
     setStreamContent("");
     setHasError(false);
-    setSubscriberEmail("");
+    setSubscriberEmail(authUser?.email ?? "");
     setSubscriberUnlocked(false);
     setSubscriptionPlan(null);
     setSubscriptionError("");
@@ -152,12 +188,53 @@ export default function Home() {
     event.preventDefault();
     const email = subscriberEmail.trim().toLowerCase();
     const displayName = userName.trim() || email.split("@")[0] || "Utilisateur";
-    if (!email || (authMode === "signup" && !userName.trim())) return;
+    const alreadyAuthenticated = authUser?.email === email && !!authToken;
+    if (!email || (!alreadyAuthenticated && !authPassword) || (authMode === "signup" && !userName.trim())) return;
 
     setSubscriptionLoading(true);
     setSubscriptionError("");
 
     try {
+      let authenticatedUser = authUser;
+      let nextToken = authToken;
+
+      if (!alreadyAuthenticated) {
+        const authResponse = await fetch(authMode === "signup" ? "/api/auth/register" : "/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            authMode === "signup"
+              ? {
+                  email,
+                  password: authPassword,
+                  name: displayName,
+                  phone: authPhone.trim() || undefined,
+                }
+              : { email, password: authPassword },
+          ),
+        });
+
+        const authData = (await authResponse.json()) as {
+          user?: AuthUser;
+          token?: string;
+          message?: string;
+          error?: string;
+        };
+
+        if (!authResponse.ok || !authData.user || !authData.token) {
+          throw new Error(authData.message ?? authData.error ?? "Impossible de se connecter.");
+        }
+
+        authenticatedUser = authData.user;
+        nextToken = authData.token;
+        setAuthUser(authData.user);
+        setAuthToken(authData.token);
+        setUserName(authData.user.name);
+        setSubscriberEmail(authData.user.email);
+        setAuthPhone(authData.user.phone ?? "");
+        window.localStorage.setItem("befind_auth_token", authData.token);
+      }
+
       const response = await fetch(`/api/quiz/access/${encodeURIComponent(email)}`);
       const data = (await response.json()) as {
         active?: boolean;
@@ -179,7 +256,8 @@ export default function Home() {
         return;
       }
 
-      setUserName(displayName);
+      setUserName(authenticatedUser?.name ?? displayName);
+      setAuthToken(nextToken);
       setSubscriptionPlan(data.plan ?? null);
       setSubscriberUnlocked(!!data.canUsePremiumTools);
       setStep("quiz");
@@ -529,7 +607,7 @@ export default function Home() {
                     {authMode === "login" ? "Connexion" : "Nouveau utilisateur"}
                   </h2>
                   <p className="mt-2 text-center text-sm text-white/70">
-                    Connectez votre email d'abonnement pour accéder au questionnaire.
+                    Connectez votre compte avec email et mot de passe pour accéder au questionnaire.
                   </p>
                 </div>
 
@@ -562,6 +640,13 @@ export default function Home() {
                   </div>
 
                   <form onSubmit={(event) => void handleStart(event)} className="space-y-4 text-left">
+                    {authUser && (
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                        Connecté en tant que <strong>{authUser.email}</strong>. Vous pouvez continuer ou changer
+                        d'email pour vous connecter avec un autre compte.
+                      </div>
+                    )}
+
                     {authMode === "signup" && (
                       <div className="space-y-2">
                         <label htmlFor="name" className="text-sm font-semibold">
@@ -595,7 +680,7 @@ export default function Home() {
 
                     <div className="space-y-2">
                       <label htmlFor="subscription-email" className="text-sm font-semibold">
-                        Email de votre abonnement
+                        Email
                       </label>
                       <Input
                         id="subscription-email"
@@ -607,9 +692,42 @@ export default function Home() {
                         autoFocus={authMode === "login"}
                       />
                       <p className="text-xs text-stone-500">
-                        Utilisez l'email lié à votre abonnement Starter ou Premium.
+                        Utilisez le même email que votre abonnement Starter ou Premium.
                       </p>
                     </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="auth-password" className="text-sm font-semibold">
+                        Mot de passe
+                      </label>
+                      <Input
+                        id="auth-password"
+                        type="password"
+                        value={authPassword}
+                        onChange={(event) => setAuthPassword(event.target.value)}
+                        placeholder={authMode === "signup" ? "Minimum 8 caractères" : "Votre mot de passe"}
+                        className="h-12"
+                      />
+                      {authMode === "signup" && (
+                        <p className="text-xs text-stone-500">Choisissez un mot de passe d'au moins 8 caractères.</p>
+                      )}
+                    </div>
+
+                    {authMode === "signup" && (
+                      <div className="space-y-2">
+                        <label htmlFor="auth-phone" className="text-sm font-semibold">
+                          Numéro de téléphone <span className="font-normal text-stone-400">(optionnel)</span>
+                        </label>
+                        <Input
+                          id="auth-phone"
+                          type="tel"
+                          value={authPhone}
+                          onChange={(event) => setAuthPhone(event.target.value)}
+                          placeholder="+41 79 000 00 00"
+                          className="h-12"
+                        />
+                      </div>
+                    )}
 
                     <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-950">
                       <div className="flex items-start gap-2">
@@ -631,6 +749,8 @@ export default function Home() {
                       type="submit"
                       disabled={
                         !subscriberEmail.trim() ||
+                        (!(authUser?.email === subscriberEmail.trim().toLowerCase() && authToken) &&
+                          !authPassword) ||
                         (authMode === "signup" && !userName.trim()) ||
                         subscriptionLoading
                       }
