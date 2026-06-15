@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { contactMessagesTable, db } from "@workspace/db";
 import { z } from "zod/v4";
 
+import { sendContactEmail } from "../lib/mailer";
+
 const router: IRouter = Router();
 
 const contactBodySchema = z.object({
@@ -29,7 +31,14 @@ router.post("/contact", async (req, res): Promise<void> => {
       })
       .returning();
 
-    res.status(201).json({ id: saved.id, status: saved.status });
+    let emailSent = false;
+    try {
+      emailSent = await sendContactEmail(parsed.data);
+    } catch (err) {
+      req.log.error({ err }, "Failed to send contact email");
+    }
+
+    res.status(201).json({ id: saved.id, status: saved.status, emailSent });
   } catch (err) {
     req.log.error({ err }, "Contact form error");
     res.status(500).json({ error: "Erreur lors de l'envoi du message" });

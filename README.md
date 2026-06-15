@@ -39,6 +39,12 @@ This repo includes a `.replit` file. After importing the GitHub repo in Replit:
 1. Add the required secrets in Replit:
    - `OPENAI_API_KEY`
    - `DATABASE_URL`
+   - `AUTH_TOKEN_SECRET`
+   - `SMTP_HOST`
+   - `SMTP_PORT`
+   - `SMTP_USER`
+   - `SMTP_PASS`
+   - `SMTP_FROM`
 2. Connect Stripe from the Replit Integrations tab if you want pricing,
    checkout, and subscription-gated shop generation to work.
 3. Press Run. Replit will execute:
@@ -49,3 +55,6 @@ npm run dev:replit
 
 The public Replit webview should open the Vite app on port `5173`; the Express
 API stays available internally on port `3001`.
+
+For the contact form, configure SMTP with Gmail using an app password. Messages
+are sent to `befind.business@gmail.com` and also saved in the database.
