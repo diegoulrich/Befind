@@ -235,7 +235,9 @@ export default function Home() {
         window.localStorage.setItem("befind_auth_token", authData.token);
       }
 
-      const response = await fetch(`/api/quiz/access/${encodeURIComponent(email)}`);
+      const response = await fetch(`/api/quiz/access/${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${nextToken}` },
+      });
       const data = (await response.json()) as {
         active?: boolean;
         plan?: SubscriptionPlan;
@@ -273,7 +275,10 @@ export default function Home() {
     try {
       const response = await fetch("/api/quiz/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           answers: finalAnswers,
           email: subscriberEmail.trim().toLowerCase(),
@@ -440,7 +445,10 @@ export default function Home() {
     try {
       const response = await fetch(`/api/quiz/results/${finalResult.id}/alternative`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           email: subscriberEmail.trim().toLowerCase(),
           language: lang,

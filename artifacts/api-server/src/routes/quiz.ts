@@ -10,6 +10,7 @@ import {
 import { and, count, desc, eq } from "drizzle-orm";
 
 import { openai } from "../lib/openai";
+import { getAuthPayloadFromRequest } from "../lib/auth";
 import { getActiveSubscription, getSubscriptionAccess } from "../lib/subscription";
 
 const router: IRouter = Router();
@@ -101,6 +102,12 @@ router.get("/quiz/access/:email", async (req, res): Promise<void> => {
     return;
   }
 
+  const auth = getAuthPayloadFromRequest(req);
+  if (!auth || auth.email.toLowerCase() !== email) {
+    res.status(401).json({ error: "Connexion requise pour vérifier l'accès au questionnaire" });
+    return;
+  }
+
   try {
     const subscription = await getActiveSubscription(email);
     const access = getSubscriptionAccess(subscription);
@@ -139,6 +146,11 @@ router.post("/quiz/submit", async (req, res): Promise<void> => {
 
   const { answers, email, userName, language } = parsed.data;
   const normalizedEmail = email.toLowerCase();
+  const auth = getAuthPayloadFromRequest(req);
+  if (!auth || auth.email.toLowerCase() !== normalizedEmail) {
+    res.status(401).json({ error: "Connexion requise pour faire le questionnaire" });
+    return;
+  }
   const responseLang = LANG_NAMES[language ?? "fr"] ?? "French";
   const answersText = answers.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join("\n\n");
 
@@ -263,6 +275,11 @@ router.post("/quiz/results/:id/alternative", async (req, res): Promise<void> => 
 
   const normalizedEmail = parsedBody.data.email.toLowerCase();
   const responseLang = LANG_NAMES[parsedBody.data.language ?? "fr"] ?? "French";
+  const auth = getAuthPayloadFromRequest(req);
+  if (!auth || auth.email.toLowerCase() !== normalizedEmail) {
+    res.status(401).json({ error: "Connexion requise pour demander un autre business" });
+    return;
+  }
 
   const [currentResult] = await db
     .select()
@@ -378,13 +395,29 @@ The user did not like the previous business suggestion. Recommend a different bu
   }
 });
 
-router.get("/quiz/results", async (_req, res): Promise<void> => {
-  const results = await db.select().from(quizResultsTable).orderBy(desc(quizResultsTable.createdAt));
+router.get("/quiz/results", async (req, res): Promise<void> => {
+  const auth = getAuthPayloadFromRequest(req);
+  if (!auth) {
+    res.status(401).json({ error: "Connexion requise" });
+    return;
+  }
+
+  const results = await db
+    .select()
+    .from(quizResultsTable)
+    .where(eq(quizResultsTable.email, auth.email.toLowerCase()))
+    .orderBy(desc(quizResultsTable.createdAt));
   const enriched = await Promise.all(results.map((result) => enrichResult(result)));
   res.json(ListResultsResponse.parse(enriched));
 });
 
 router.get("/quiz/results/:id", async (req, res): Promise<void> => {
+  const auth = getAuthPayloadFromRequest(req);
+  if (!auth) {
+    res.status(401).json({ error: "Connexion requise" });
+    return;
+  }
+
   const params = GetResultParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -398,6 +431,11 @@ router.get("/quiz/results/:id", async (req, res): Promise<void> => {
 
   if (!result) {
     res.status(404).json({ error: "Résultat introuvable" });
+    return;
+  }
+
+  if (result.email !== auth.email.toLowerCase()) {
+    res.status(403).json({ error: "Accès non autorisé à ce résultat" });
     return;
   }
 

@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import type { Request } from "express";
 import { promisify } from "node:util";
 
 const scrypt = promisify(scryptCallback);
@@ -67,4 +68,9 @@ export function verifyAuthToken(token: string): AuthTokenPayload | null {
 export function getBearerToken(authorization?: string): string | null {
   if (!authorization?.startsWith("Bearer ")) return null;
   return authorization.slice("Bearer ".length).trim() || null;
+}
+
+export function getAuthPayloadFromRequest(req: Request): AuthTokenPayload | null {
+  const token = getBearerToken(req.headers.authorization);
+  return token ? verifyAuthToken(token) : null;
 }

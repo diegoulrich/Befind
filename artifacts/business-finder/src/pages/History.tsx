@@ -17,7 +17,9 @@ export default function History() {
   const [lang, setLang] = useState<Language>("fr");
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const { data: results, isLoading } = useListResults();
+  const { data: results, isLoading, isError } = useListResults({
+    query: { retry: false },
+  });
 
   const t = TRANSLATIONS[lang];
   const currentLang = LANGUAGES.find((language) => language.code === lang)!;
@@ -61,7 +63,17 @@ export default function History() {
           <p className="text-xl text-stone-600">{t.historySubtitle}</p>
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <Card className="py-24 text-center">
+            <p className="mb-3 text-xl font-bold">Connexion requise</p>
+            <p className="mx-auto mb-6 max-w-md text-stone-600">
+              Connectez-vous depuis l'accueil pour voir uniquement vos recommandations et votre historique privé.
+            </p>
+            <Button onClick={() => setLocation("/")} size="lg">
+              Se connecter
+            </Button>
+          </Card>
+        ) : isLoading ? (
           <div className="grid gap-6 md:grid-cols-2">
             {[1, 2, 3, 4].map((id) => (
               <Card key={id} className="h-48 animate-pulse bg-stone-100 p-6" />

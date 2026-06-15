@@ -259,20 +259,36 @@ export default function PremiumToolPage() {
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [generatedOutput, setGeneratedOutput] = useState("");
   const [savedNote, setSavedNote] = useState("");
+  const [completedTasks, setCompletedTasks] = useState<number[]>([]);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!email) {
+    const token = window.localStorage.getItem("befind_auth_token");
+    if (!email || !token) {
       setAccessState("denied");
       return;
     }
 
-    fetch(`/api/shop/subscription/${encodeURIComponent(email)}`)
+    fetch(`/api/premium-tools/${encodeURIComponent(workspace)}/${encodeURIComponent(module)}?business=${encodeURIComponent(business)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((response) => response.json())
       .then((data) => {
         if (cancelled) return;
-        setAccessState(data?.canUsePremiumTools ? "granted" : "denied");
+        if (data?.error) {
+          setAccessState("denied");
+          return;
+        }
+
+        if (data?.state) {
+          setFieldValues((data.state.fieldValues ?? {}) as Record<string, string>);
+          setGeneratedOutput(data.state.generatedOutput ?? "");
+          setSavedNote(data.state.savedNote ?? "");
+          setCompletedTasks(Array.isArray(data.state.completedTasks) ? data.state.completedTasks : []);
+        }
+        setAccessState("granted");
       })
       .catch(() => {
         if (!cancelled) setAccessState("denied");
@@ -281,7 +297,48 @@ export default function PremiumToolPage() {
     return () => {
       cancelled = true;
     };
-  }, [email]);
+  }, [email, workspace, module, business]);
+
+  const toggleTask = (idx: number) => {
+    setCompletedTasks((current) =>
+      current.includes(idx) ? current.filter((item) => item !== idx) : [...current, idx],
+    );
+    setSaveStatus("idle");
+  };
+
+  const saveToolState = async () => {
+    const token = window.localStorage.getItem("befind_auth_token");
+    if (!token) {
+      setAccessState("denied");
+      return;
+    }
+
+    setSaveStatus("saving");
+    try {
+      const response = await fetch(
+        `/api/premium-tools/${encodeURIComponent(workspace)}/${encodeURIComponent(module)}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            businessName: business,
+            fieldValues,
+            generatedOutput,
+            savedNote,
+            completedTasks,
+          }),
+        },
+      );
+
+      if (!response.ok) throw new Error("save failed");
+      setSaveStatus("saved");
+    } catch {
+      setSaveStatus("error");
+    }
+  };
 
   if (accessState === "checking") {
     return (
@@ -366,7 +423,12 @@ export default function PremiumToolPage() {
             <div className="space-y-3">
               {template.tasks.map((task) => (
                 <label key={task} className="flex gap-3 rounded-xl border bg-white p-3 text-sm">
-                  <input type="checkbox" className="mt-1" />
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={completedTasks.includes(template.tasks.indexOf(task))}
+                    onChange={() => toggleTask(template.tasks.indexOf(task))}
+                  />
                   <span>{task}</span>
                 </label>
               ))}
@@ -386,15 +448,22 @@ export default function PremiumToolPage() {
                   <label className="text-sm font-semibold">{field.label}</label>
                   <Input
                     value={fieldValues[field.label] ?? ""}
-                    onChange={(event) =>
-                      setFieldValues((current) => ({ ...current, [field.label]: event.target.value }))
-                    }
+                    onChange={(event) => {
+                      setFieldValues((current) => ({ ...current, [field.label]: event.target.value }));
+                      setSaveStatus("idle");
+                    }}
                     placeholder={field.placeholder}
                     className="h-12"
                   />
                 </div>
               ))}
-              <Button className="w-full" onClick={() => setGeneratedOutput(buildFakeOutput(template, fieldValues))}>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setGeneratedOutput(buildFakeOutput(template, fieldValues));
+                  setSaveStatus("idle");
+                }}
+              >
                 <Sparkles className="h-4 w-4" /> Générer un livrable
               </Button>
             </div>
@@ -418,14 +487,33 @@ export default function PremiumToolPage() {
           </div>
           <textarea
             value={savedNote}
-            onChange={(event) => setSavedNote(event.target.value)}
+            onChange={(event) => {
+              setSavedNote(event.target.value);
+              setSaveStatus("idle");
+            }}
             placeholder="Notez ici vos idées, retours clients, prochaines relances ou résultats..."
             className="min-h-36 w-full rounded-2xl border border-stone-300 bg-white p-4 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
           />
-          <p className="mt-3 flex items-center gap-2 text-sm text-stone-500">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            Les notes sont prêtes pour la sauvegarde DB quand on branchera les comptes utilisateurs.
-          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-2 text-sm text-stone-500">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Vos notes, tâches, champs et livrables sont sauvegardés sur votre compte.
+            </p>
+            <Button onClick={() => void saveToolState()} disabled={saveStatus === "saving"}>
+              {saveStatus === "saving" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Sauvegarder
+            </Button>
+          </div>
+          {saveStatus === "saved" && (
+            <p className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              Module sauvegardé avec succès.
+            </p>
+          )}
+          {saveStatus === "error" && (
+            <p className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              Impossible de sauvegarder pour le moment. Réessayez.
+            </p>
+          )}
         </Card>
       </main>
     </div>
