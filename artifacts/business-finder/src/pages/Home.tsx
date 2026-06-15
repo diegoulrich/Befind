@@ -547,6 +547,9 @@ export default function Home() {
           <Button variant="ghost" onClick={() => setLocation("/pricing")}>
             {t.pricing}
           </Button>
+          <Button variant="ghost" onClick={() => setLocation("/contact")}>
+            Contactez-nous
+          </Button>
           <Button variant="ghost" className="gap-2" onClick={() => setLocation("/history")}>
             <HistoryIcon className="h-4 w-4" />
             {t.history}

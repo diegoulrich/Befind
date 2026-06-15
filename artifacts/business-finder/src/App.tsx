@@ -4,6 +4,7 @@ import { Route, Router as WouterRouter, Switch } from "wouter";
 import ChatBot from "@/components/ChatBot";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import Contact from "@/pages/Contact";
 import History from "@/pages/History";
 import Home from "@/pages/Home";
 import MaBoutique from "@/pages/MaBoutique";
@@ -18,6 +19,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/contact" component={Contact} />
       <Route path="/history" component={History} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/shop-builder" component={ShopBuilder} />
