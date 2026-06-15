@@ -103,7 +103,7 @@ router.post("/stripe/checkout", async (req, res): Promise<void> => {
       ],
       mode: "subscription",
       customer_email: email || undefined,
-      success_url: `${baseUrl}/?checkout=success`,
+      success_url: `${baseUrl}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/?checkout=cancel`,
       locale: "auto",
       adaptive_pricing: { enabled: true },
@@ -115,6 +115,40 @@ router.post("/stripe/checkout", async (req, res): Promise<void> => {
   } catch (err) {
     req.log.error({ err }, "Error creating checkout session");
     res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
+
+router.get("/stripe/checkout-session/:sessionId", async (req, res): Promise<void> => {
+  const sessionId = req.params.sessionId?.trim();
+  if (!sessionId) {
+    res.status(400).json({ error: "sessionId is required" });
+    return;
+  }
+
+  try {
+    const stripe = await getUncachableStripeClient();
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["customer", "subscription"],
+    });
+
+    const customerEmail =
+      session.customer_details?.email ??
+      session.customer_email ??
+      (typeof session.customer !== "string" && session.customer && !("deleted" in session.customer)
+        ? session.customer.email
+        : null);
+
+    res.json({
+      id: session.id,
+      status: session.status,
+      paymentStatus: session.payment_status,
+      email: customerEmail,
+      subscriptionId:
+        typeof session.subscription === "string" ? session.subscription : session.subscription?.id ?? null,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Error retrieving checkout session");
+    res.status(500).json({ error: "Failed to retrieve checkout session" });
   }
 });
 

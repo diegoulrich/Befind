@@ -124,6 +124,7 @@ export default function Home() {
   const [subscriptionPlan, setSubscriptionPlan] = useState<SubscriptionPlan>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState("");
+  const [checkoutNotice, setCheckoutNotice] = useState("");
   const [alternativeError, setAlternativeError] = useState("");
   const [alternativeLoading, setAlternativeLoading] = useState(false);
   const [agentQuestion, setAgentQuestion] = useState("");
@@ -165,6 +166,37 @@ export default function Home() {
       });
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    const sessionId = params.get("session_id");
+
+    if (checkout === "cancel") {
+      setCheckoutNotice("Paiement annulé. Vous pouvez choisir un abonnement quand vous êtes prêt.");
+      window.history.replaceState({}, "", window.location.pathname);
+      return;
+    }
+
+    if (checkout !== "success") return;
+
+    setCheckoutNotice("Paiement confirmé. Créons ou connectons votre compte pour commencer.");
+    setAuthMode("signup");
+    setStep("auth");
+
+    if (sessionId) {
+      fetch(`/api/stripe/checkout-session/${encodeURIComponent(sessionId)}`)
+        .then((response) => response.json())
+        .then((data: { email?: string | null }) => {
+          if (data.email) setSubscriberEmail(data.email);
+        })
+        .catch(() => {
+          // The success message remains visible even if Stripe session lookup fails.
+        });
+    }
+
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
   const handleRestart = () => {
     setStep("welcome");
     setAuthMode("login");
@@ -177,6 +209,7 @@ export default function Home() {
     setSubscriberUnlocked(false);
     setSubscriptionPlan(null);
     setSubscriptionError("");
+    setCheckoutNotice("");
     setAlternativeError("");
     setAlternativeLoading(false);
     setAgentQuestion("");
@@ -536,6 +569,11 @@ export default function Home() {
                   {t.errorMsg}
                 </div>
               )}
+              {checkoutNotice && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-4 text-sm font-medium text-emerald-800">
+                  {checkoutNotice}
+                </div>
+              )}
               <h1 className="font-serif text-5xl font-black leading-tight md:text-7xl">
                 {t.heroTitle} <span className="text-indigo-600">{t.heroHighlight}</span>
               </h1>
@@ -620,6 +658,11 @@ export default function Home() {
                 </div>
 
                 <div className="space-y-5 p-6">
+                  {checkoutNotice && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-900">
+                      {checkoutNotice}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2 rounded-2xl bg-stone-100 p-1">
                     <button
                       type="button"

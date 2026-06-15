@@ -235,17 +235,6 @@ function getTemplate(workspace: string, moduleLabel: string, business: string): 
   return base;
 }
 
-function buildFakeOutput(template: ModuleTemplate, fieldValues: Record<string, string>) {
-  const context = Object.values(fieldValues).filter(Boolean).join(" / ") || "votre contexte";
-  return [
-    `1. Priorité immédiate : clarifier ${context} en une offre ou action simple.`,
-    `2. Action rapide : créer 3 variantes et tester celle qui demande le moins de ressources.`,
-    `3. Suivi : déplacer chaque élément dans le pipeline "${template.pipeline.join(" -> ")}".`,
-    "4. Mesure : noter chaque retour, coût, objection et résultat obtenu.",
-    "5. Prochaine optimisation : demander à l'agent IA de transformer les meilleurs retours en plan de la semaine.",
-  ].join("\n");
-}
-
 export default function PremiumToolPage() {
   const [, setLocation] = useLocation();
   const { workspace, module } = parsePath();
@@ -260,6 +249,7 @@ export default function PremiumToolPage() {
   const [generatedOutput, setGeneratedOutput] = useState("");
   const [savedNote, setSavedNote] = useState("");
   const [completedTasks, setCompletedTasks] = useState<number[]>([]);
+  const [generateStatus, setGenerateStatus] = useState<"idle" | "generating" | "error">("idle");
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
@@ -337,6 +327,43 @@ export default function PremiumToolPage() {
       setSaveStatus("saved");
     } catch {
       setSaveStatus("error");
+    }
+  };
+
+  const generatePremiumOutput = async () => {
+    const token = window.localStorage.getItem("befind_auth_token");
+    if (!token) {
+      setAccessState("denied");
+      return;
+    }
+
+    setGenerateStatus("generating");
+    try {
+      const response = await fetch(
+        `/api/premium-tools/${encodeURIComponent(workspace)}/${encodeURIComponent(module)}/generate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            businessName: business,
+            workspaceLabel,
+            moduleTitle: template.title,
+            fieldValues,
+          }),
+        },
+      );
+
+      const data = (await response.json()) as { output?: string; error?: string };
+      if (!response.ok || !data.output) throw new Error(data.error ?? "generation failed");
+
+      setGeneratedOutput(data.output);
+      setGenerateStatus("idle");
+      setSaveStatus("idle");
+    } catch {
+      setGenerateStatus("error");
     }
   };
 
@@ -459,13 +486,21 @@ export default function PremiumToolPage() {
               ))}
               <Button
                 className="w-full"
-                onClick={() => {
-                  setGeneratedOutput(buildFakeOutput(template, fieldValues));
-                  setSaveStatus("idle");
-                }}
+                disabled={generateStatus === "generating"}
+                onClick={() => void generatePremiumOutput()}
               >
-                <Sparkles className="h-4 w-4" /> Générer un livrable
+                {generateStatus === "generating" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Générer avec l'IA
               </Button>
+              {generateStatus === "error" && (
+                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                  Impossible de générer ce livrable pour le moment. Réessayez.
+                </p>
+              )}
             </div>
           </Card>
 
