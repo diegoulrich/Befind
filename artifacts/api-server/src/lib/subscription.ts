@@ -12,9 +12,30 @@ export interface SubscriptionAccess extends ActiveSubscription {
   canUsePremiumTools: boolean;
 }
 
+const DEFAULT_OWNER_PREMIUM_EMAILS = ["diego.ulrich.03@gmail.com"];
+
+function getOwnerPremiumEmails(): string[] {
+  const configured = process.env.OWNER_PREMIUM_EMAILS;
+  const emails = configured
+    ? configured.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean)
+    : DEFAULT_OWNER_PREMIUM_EMAILS;
+
+  return emails;
+}
+
+export function isOwnerPremiumEmail(email: string): boolean {
+  return getOwnerPremiumEmails().includes(email.trim().toLowerCase());
+}
+
 export async function getActiveSubscription(email: string): Promise<ActiveSubscription> {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (isOwnerPremiumEmail(normalizedEmail)) {
+    return { active: true, tier: "premium", customerId: "owner-premium-access" };
+  }
+
   const stripe = await getUncachableStripeClient();
-  const customers = await stripe.customers.list({ email, limit: 10 });
+  const customers = await stripe.customers.list({ email: normalizedEmail, limit: 10 });
 
   for (const customer of customers.data) {
     const subs = await stripe.subscriptions.list({

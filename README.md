@@ -40,6 +40,7 @@ This repo includes a `.replit` file. After importing the GitHub repo in Replit:
    - `OPENAI_API_KEY`
    - `DATABASE_URL`
    - `AUTH_TOKEN_SECRET`
+   - `OWNER_PREMIUM_EMAILS`
    - `SMTP_HOST`
    - `SMTP_PORT`
    - `SMTP_USER`
@@ -58,3 +59,6 @@ API stays available internally on port `3001`.
 
 For the contact form, configure SMTP with Gmail using an app password. Messages
 are sent to `befind.business@gmail.com` and also saved in the database.
+
+`OWNER_PREMIUM_EMAILS` can contain comma-separated emails that should always get
+Premium access without Stripe payment, useful for the owner/admin account.
