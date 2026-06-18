@@ -1,0 +1,30 @@
+{
+  "name": "@workspace/api-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@workspace/api-zod": "0.1.0",
+    "@workspace/db": "0.1.0",
+    "dotenv": "latest",
+    "drizzle-orm": "latest",
+    "express": "latest",
+    "openai": "latest",
+    "pino": "latest",
+    "pino-http": "latest",
+    "pino-pretty": "latest",
+    "stripe": "latest",
+    "stripe-replit-sync": "latest"
+  },
+  "devDependencies": {
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}
